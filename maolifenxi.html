@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>亚马逊毛利分析 | 人民币利润洞察 | 新品专项+全报表导出</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f4f5f7; padding: 24px 20px; }
+        .app-header { background: #232f3e; color: white; padding: 18px 28px; border-radius: 24px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .logo-area h1 { font-size: 1.6rem; font-weight: 600; }
+        .logo-area p { font-size: 0.85rem; opacity: 0.8; }
+        .upload-area { background: #ff9900; padding: 8px 18px; border-radius: 40px; color: #232f3e; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .upload-area:hover { background: #e68a00; transform: scale(1.02); }
+        #fileInfo { font-size: 0.8rem; background: #2d3e4f; padding: 6px 14px; border-radius: 30px; color: #ddd; }
+        .card { background: white; border-radius: 20px; padding: 20px 24px; margin-bottom: 28px; box-shadow: 0 4px 14px rgba(0,0,0,0.03); border: 1px solid #e9ecef; }
+        .filter-bar { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 20px; }
+        .filter-group { flex: 1; min-width: 160px; }
+        .filter-group label { font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.85rem; color: #2c3e50; }
+        select, button { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid #ced4da; background: white; font-size: 0.9rem; }
+        .btn-primary { background: #ff9900; border: none; color: #232f3e; font-weight: bold; cursor: pointer; }
+        .btn-primary:hover { background: #e68a00; }
+        .btn-outline { background: #f8f9fa; border: 1px solid #ced4da; cursor: pointer; }
+        .btn-outline:hover { background: #e2e6ea; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 20px; margin-bottom: 10px; }
+        .kpi-card { background: #f8fafc; border-radius: 20px; padding: 16px; text-align: center; border-left: 4px solid #ff9900; }
+        .kpi-value { font-size: 1.6rem; font-weight: 800; color: #232f3e; }
+        .kpi-label { color: #5e6f8d; font-size: 0.85rem; }
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th { background: #f1f3f5; padding: 12px 8px; text-align: left; font-weight: 600; position: sticky; top:0; }
+        td { padding: 10px 8px; border-bottom: 1px solid #e9ecef; }
+        tr:hover { background: #fff6e8; }
+        .section-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 16px; border-left: 5px solid #ff9900; padding-left: 15px; margin-top: 10px; }
+        .risk-tag { padding: 3px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; display: inline-block; }
+        .risk-high { background: #fecdd3; color: #be123c; }
+        .risk-mid { background: #fed7aa; color: #c2410c; }
+        .risk-low { background: #dbeafe; color: #1e40af; }
+        .risk-safe { background: #dcfce7; color: #166534; }
+        .warn-cell { background: #fffbeb !important; color: #92400e; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <div class="logo-area">
+        <h1><i class="fas fa-chart-pie"></i> 亚马逊毛利分析</h1>
+        <p>人民币利润 | 多维透视 + 新品专项 | 销量字段 + 全报表导出</p>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="upload-area" id="uploadTrigger">
+            <i class="fas fa-upload"></i> 上传Excel报表
+            <input type="file" id="excelUpload" accept=".xlsx, .xls" style="display: none;">
+        </div>
+        <div id="fileInfo">📊 加载演示数据 | 毛利分析就绪</div>
+    </div>
+</div>
+
+<!-- 毛利分析核心面板 + 联动筛选 -->
+<div class="card">
+    <div class="filter-bar">
+        <div class="filter-group"><label><i class="fas fa-globe"></i> 区域</label><select id="profitSiteFilter"><option value="all">全部</option></select></div>
+        <div class="filter-group"><label><i class="fas fa-tag"></i> 产品类型</label><select id="profitTypeFilter"><option value="all">全部</option></select></div>
+        <div class="filter-group"><label><i class="fas fa-box"></i> 品名</label><select id="profitProductFilter"><option value="all">全部</option></select></div>
+        <div class="filter-group"><button id="applyProfitFilterBtn" class="btn-primary"><i class="fas fa-filter"></i> 应用筛选</button></div>
+        <div class="filter-group"><button id="exportProfitBtn" class="btn-outline"><i class="fas fa-download"></i> 导出全分析报表</button></div>
+    </div>
+</div>
+
+<div class="kpi-grid" id="profitKpiContainer"></div>
+
+<div class="card">
+    <div class="section-title">📋 SKU 毛利明细表 <span style="font-size:12px; color:#ff9900;">(风险等级 & 异常高亮 | 销量字段)</span></div>
+    <div class="table-responsive" id="profitDetailTable"></div>
+</div>
+
+<div class="card">
+    <div class="section-title">🌍 区域毛利表现 (含新品指标)</div>
+    <div class="table-responsive" id="profitRegionTable"></div>
+</div>
+
+<div class="card">
+    <div class="section-title">🏷️ 产品类型毛利</div>
+    <div class="table-responsive" id="profitTypeTable"></div>
+</div>
+
+<script>
+// ---------- 全局数据结构 ----------
+let grossProfitRawData = [];      // 原始毛利明细
+let productTypeMap = new Map();    // ASIN -> { type, name }
+let newProductSet = new Set();     // 新品SKU集合
+
+// 筛选状态
+let profitCurrentFilter = { site: "all", type: "all", product: "all" };
+
+// 辅助函数: 根据店铺名解析区域 (US/EU/JP/ME)
+function getRegionByShop(shop) {
+    if (!shop) return "EU";
+    if (shop.includes("-US")) return "US";
+    if (shop.includes("-JP")) return "JP";
+    if (shop.includes("-AE") || shop.includes("-SA") || shop.includes("-TR")) return "ME";
+    return "EU";
+}
+
+// 人民币转USD (参考汇率 7.2)
+function cnyToUsd(cny) {
+    return cny / 7.2;
+}
+
+// 计算每个SKU的详细利润指标
+function calcProfitItem(item) {
+    const sales = item.salesAmountCNY || 0;
+    const cpc = item.cpcAdFee || 0;
+    const discount = item.discountAmount || 0;
+    const purchase = item.purchaseCost || 0;
+    const refund = item.refundAmount || 0;
+    const fba = item.fbaStorageFee || 0;
+    const aging = item.agingProvision || 0;
+
+    const profit = item.profitFromExcel;
+    const grossRate = sales ? (profit / sales * 100) : 0;
+
+    const adRate = sales ? (cpc / sales * 100) : 0;
+    const promoRate = sales ? (discount / sales * 100) : 0;
+    const purchaseRate = sales ? (purchase / sales * 100) : 0;
+    const refundRate = sales ? (refund / sales * 100) : 0;
+    const fbaRate = sales ? (fba / sales * 100) : 0;
+    const agingRate = sales ? (aging / sales * 100) : 0;
+
+    return {
+        profit, grossRate, adRate, promoRate, purchaseRate,
+        refundRate, fbaRate, agingRate
+    };
+}
+
+// 获取筛选后的毛利数据 (基于当前筛选状态)
+function getProfitFilteredData() {
+    let f = grossProfitRawData;
+    if (profitCurrentFilter.site !== "all") f = f.filter(i => i.siteRegion === profitCurrentFilter.site);
+    if (profitCurrentFilter.type !== "all") f = f.filter(i => i.productType === profitCurrentFilter.type);
+    if (profitCurrentFilter.product !== "all") f = f.filter(i => i.productName === profitCurrentFilter.product);
+    return f;
+}
+
+// ========== 联动筛选核心逻辑 ==========
+function refreshTypeOptionsByRegion() {
+    const siteSelect = document.getElementById("profitSiteFilter");
+    const selectedSite = siteSelect.value;
+    
+    let filteredBySite = grossProfitRawData;
+    if (selectedSite !== "all") {
+        filteredBySite = grossProfitRawData.filter(i => i.siteRegion === selectedSite);
+    }
+    const typesSet = new Set();
+    filteredBySite.forEach(i => { if (i.productType) typesSet.add(i.productType); });
+    const types = Array.from(typesSet).sort();
+    
+    const typeSelect = document.getElementById("profitTypeFilter");
+    const currentType = typeSelect.value;
+    typeSelect.innerHTML = `<option value="all">全部</option>${types.map(t => `<option value="${t}">${t}</option>`).join('')}`;
+    if (types.includes(currentType)) {
+        typeSelect.value = currentType;
+    } else {
+        typeSelect.value = "all";
+    }
+    
+    refreshProductOptionsByRegionAndType();
+}
+
+function refreshProductOptionsByRegionAndType() {
+    const siteSelect = document.getElementById("profitSiteFilter");
+    const typeSelect = document.getElementById("profitTypeFilter");
+    const selectedSite = siteSelect.value;
+    const selectedType = typeSelect.value;
+    
+    let filtered = grossProfitRawData;
+    if (selectedSite !== "all") {
+        filtered = filtered.filter(i => i.siteRegion === selectedSite);
+    }
+    if (selectedType !== "all") {
+        filtered = filtered.filter(i => i.productType === selectedType);
+    }
+    const productSet = new Set();
+    filtered.forEach(i => { if (i.productName) productSet.add(i.productName); });
+    const products = Array.from(productSet).sort();
+    
+    const productSelect = document.getElementById("profitProductFilter");
+    const currentProduct = productSelect.value;
+    productSelect.innerHTML = `<option value="all">全部</option>${products.map(p => `<option value="${p}">${p}</option>`).join('')}`;
+    if (products.includes(currentProduct)) {
+        productSelect.value = currentProduct;
+    } else {
+        productSelect.value = "all";
+    }
+}
+
+function initProfitFilters() {
+    const siteSelect = document.getElementById("profitSiteFilter");
+    const regionOptions = ["US", "EU", "JP", "ME"];
+    siteSelect.innerHTML = `<option value="all">全部</option>${regionOptions.map(r => `<option value="${r}">${r}</option>`).join('')}`;
+    siteSelect.value = profitCurrentFilter.site || "all";
+    refreshTypeOptionsByRegion();
+}
+
+function applyProfitFilters() {
+    profitCurrentFilter.site = document.getElementById("profitSiteFilter").value;
+    profitCurrentFilter.type = document.getElementById("profitTypeFilter").value;
+    profitCurrentFilter.product = document.getElementById("profitProductFilter").value;
+    renderProfitDashboard();
+}
+
+function onSiteChange() {
+    refreshTypeOptionsByRegion();
+}
+
+function onTypeChange() {
+    refreshProductOptionsByRegionAndType();
+}
+
+// ---------- 渲染核心 ----------
+function renderProfitDashboard() {
+    if (!grossProfitRawData.length) {
+        document.getElementById("profitKpiContainer").innerHTML = `<div class="kpi-card"><div class="kpi-value">无数据</div><div class="kpi-label">请上传Excel</div></div>`;
+        document.getElementById("profitDetailTable").innerHTML = "<div style='padding:20px; text-align:center'>暂无毛利数据，请上传包含「毛利」工作表的Excel</div>";
+        document.getElementById("profitRegionTable").innerHTML = "";
+        document.getElementById("profitTypeTable").innerHTML = "";
+        return;
+    }
+
+    const f = getProfitFilteredData();
+    if (f.length === 0) {
+        document.getElementById("profitKpiContainer").innerHTML = `<div class="kpi-card"><div class="kpi-value">无匹配</div><div class="kpi-label">请调整筛选条件</div></div>`;
+        document.getElementById("profitDetailTable").innerHTML = "<div style='padding:20px; text-align:center'>当前筛选无数据</div>";
+        document.getElementById("profitRegionTable").innerHTML = "";
+        document.getElementById("profitTypeTable").innerHTML = "";
+        return;
+    }
+
+    let totalSalesVolume = 0;
+    let totalSalesCNY = 0;
+    let totalSalesUSD = 0;
+    let totalProfit = 0;
+    let totalCPC = 0;
+    let totalRefund = 0;
+
+    f.forEach(item => {
+        totalSalesVolume += item.salesVolume || 0;
+        totalSalesCNY += item.salesAmountCNY;
+        totalSalesUSD += cnyToUsd(item.salesAmountCNY);
+        totalProfit += calcProfitItem(item).profit;
+        totalCPC += item.cpcAdFee || 0;
+        totalRefund += item.refundAmount || 0;
+    });
+
+    const totalGrossRate = totalSalesCNY ? (totalProfit / totalSalesCNY * 100) : 0;
+    const totalAdRate = totalSalesCNY ? (totalCPC / totalSalesCNY * 100) : 0;
+    const totalRefundRate = totalSalesCNY ? (totalRefund / totalSalesCNY * 100) : 0;
+
+    document.getElementById("profitKpiContainer").innerHTML = `
+        <div class="kpi-card"><div class="kpi-value">${totalSalesVolume}</div><div class="kpi-label">总销量</div></div>
+        <div class="kpi-card"><div class="kpi-value">$${totalSalesUSD.toFixed(0)}</div><div class="kpi-label">总销售额(USD)</div></div>
+        <div class="kpi-card"><div class="kpi-value">￥${Math.round(totalProfit).toLocaleString()}</div><div class="kpi-label">总毛利额</div></div>
+        <div class="kpi-card"><div class="kpi-value">${totalGrossRate.toFixed(1)}%</div><div class="kpi-label">总毛利率</div></div>
+        <div class="kpi-card"><div class="kpi-value">${totalAdRate.toFixed(1)}%</div><div class="kpi-label">广告占比</div></div>
+        <div class="kpi-card"><div class="kpi-value">${totalRefundRate.toFixed(1)}%</div><div class="kpi-label">退款占比</div></div>
+    `;
+
+    renderProfitDetailTable(f);
+    renderProfitRegion(f);
+    renderProfitType(f);
+}
+
+function renderProfitDetailTable(f) {
+    let html = `<table><thead><tr>
+        <th>区域</th><th>店铺</th><th>ASIN</th><th>SKU</th><th>产品名称</th><th>产品类型</th>
+        <th>销售金额(￥)</th><th>销售金额(USD)</th><th>毛利(￥)</th><th>毛利率</th><th>风险等级</th>
+        <th>广告占比</th><th>促销占比</th><th>退款率</th><th>采购占比</th><th>仓租占比</th><th>库龄计提占比</th><th>销量</th>
+    </tr></thead><tbody>`;
+
+    f.forEach(item => {
+        const p = calcProfitItem(item);
+        const salesUsd = cnyToUsd(item.salesAmountCNY);
+        
+        let riskCls, riskText;
+        if (p.grossRate < 0) {
+            riskCls = "risk-high"; riskText = "高 (亏损)";
+        } else if (p.grossRate < 10) {
+            riskCls = "risk-mid"; riskText = "中 (低利)";
+        } else if (p.grossRate < 20) {
+            riskCls = "risk-low"; riskText = "低 (一般)";
+        } else {
+            riskCls = "risk-safe"; riskText = "安全 (健康)";
+        }
+        
+        const adClass = p.adRate < -10 ? "warn-cell" : "";
+        const promoClass = p.promoRate < -3 ? "warn-cell" : "";
+        const refundClass = p.refundRate < -6 ? "warn-cell" : "";
+        
+        const salesVolume = item.salesVolume !== undefined ? item.salesVolume : (item.orders || 0);
+        
+        html += `<tr>
+            <td>${item.siteRegion || "-"}</td>
+            <td>${item.shop || "-"}</td>
+            <td>${item.asin || "-"}</td>
+            <td>${item.sku || "-"}</td>
+            <td>${item.productName || "-"}</td>
+            <td>${item.productType || "未分类"}</td>
+            <td>￥${Math.round(item.salesAmountCNY).toLocaleString()}</td>
+            <td>$${salesUsd.toFixed(2)}</td>
+            <td>￥${Math.round(p.profit).toLocaleString()}</td>
+            <td>${p.grossRate.toFixed(1)}%</td>
+            <td><span class="risk-tag ${riskCls}">${riskText}</span></td>
+            <td class="${adClass}">${p.adRate.toFixed(1)}%</td>
+            <td class="${promoClass}">${p.promoRate.toFixed(1)}%</td>
+            <td class="${refundClass}">${p.refundRate.toFixed(1)}%</td>
+            <td>${p.purchaseRate.toFixed(1)}%</td>
+            <td>${p.fbaRate.toFixed(1)}%</td>
+            <td>${p.agingRate.toFixed(1)}%</td>
+            <td>${salesVolume}</td>
+        </tr>`;
+    });
+    
+    document.getElementById("profitDetailTable").innerHTML = html + "</tbody></table>";
+}
+
+// 增强区域毛利表现: 新增新品销售额(USD)、新品毛利(￥)、新品毛利率
+function renderProfitRegion(f) {
+    const regions = ["US", "EU", "JP", "ME"];
+    let html = `<table><thead><tr>
+        <th>区域</th>
+        <th>销售额(￥)</th><th>销售额(USD)</th>
+        <th>毛利(￥)</th><th>毛利率</th>
+        <th style="background:#fff0db;">新品销售额(USD)</th>
+        <th style="background:#fff0db;">新品毛利(￥)</th>
+        <th style="background:#fff0db;">新品毛利率</th>
+    </tr></thead><tbody>`;
+    
+    regions.forEach(r => {
+        const items = f.filter(i => i.siteRegion === r);
+        // 整体指标
+        let totalSalesCny = 0, totalProfit = 0;
+        items.forEach(i => {
+            totalSalesCny += i.salesAmountCNY;
+            totalProfit += calcProfitItem(i).profit;
+        });
+        const totalSalesUsd = cnyToUsd(totalSalesCny);
+        const totalMargin = totalSalesCny ? (totalProfit / totalSalesCny * 100).toFixed(1) : "0.0";
+        
+        // 新品指标 (isNew === true)
+        const newItems = items.filter(i => i.isNew === true);
+        let newSalesCny = 0, newProfit = 0;
+        newItems.forEach(i => {
+            newSalesCny += i.salesAmountCNY;
+            newProfit += calcProfitItem(i).profit;
+        });
+        const newSalesUsd = cnyToUsd(newSalesCny);
+        const newMargin = newSalesCny ? (newProfit / newSalesCny * 100).toFixed(1) : "0.0";
+        
+        html += `<tr>
+            <td>${r}</td>
+            <td>￥${Math.round(totalSalesCny).toLocaleString()}</td>
+            <td>$${totalSalesUsd.toFixed(2)}</td>
+            <td>￥${Math.round(totalProfit).toLocaleString()}</td>
+            <td>${totalMargin}%</td>
+            <td style="background:#fff8e7;">$${newSalesUsd.toFixed(2)}</td>
+            <td style="background:#fff8e7;">￥${Math.round(newProfit).toLocaleString()}</td>
+            <td style="background:#fff8e7;">${newMargin}%</td>
+        </tr>`;
+    });
+    document.getElementById("profitRegionTable").innerHTML = html + "</tbody></table>";
+}
+
+function renderProfitType(f) {
+    const map = new Map();
+    f.forEach(i => {
+        if (!map.has(i.productType)) map.set(i.productType, { sales: 0, profit: 0 });
+        const t = map.get(i.productType);
+        t.sales += i.salesAmountCNY;
+        t.profit += calcProfitItem(i).profit;
+    });
+    let html = `<table><thead><tr><th>类型</th><th>销售额(￥)</th><th>毛利(￥)</th><th>毛利率</th></tr></thead><tbody>`;
+    for (let [k, v] of map) {
+        const margin = v.sales ? (v.profit / v.sales * 100).toFixed(1) : 0;
+        html += `<tr>
+            <td>${k}</td>
+            <td>￥${Math.round(v.sales).toLocaleString()}</td>
+            <td>￥${Math.round(v.profit).toLocaleString()}</td>
+            <td>${margin}%</td>
+        </tr>`;
+    }
+    document.getElementById("profitTypeTable").innerHTML = html + "</tbody></table>";
+}
+
+// ================= 导出全部分析报表 (Excel多Sheet，包含新品区域指标) =================
+function exportFullReport() {
+    if (!grossProfitRawData.length) {
+        alert("暂无数据，无法导出");
+        return;
+    }
+    const filteredData = getProfitFilteredData();
+    if (filteredData.length === 0) {
+        alert("当前筛选条件下无数据，请调整筛选后再导出");
+        return;
+    }
+    
+    // 1. SKU毛利明细表
+    const skuDetailRows = [];
+    filteredData.forEach(item => {
+        const p = calcProfitItem(item);
+        const salesUsd = cnyToUsd(item.salesAmountCNY);
+        let riskText = "";
+        if (p.grossRate < 0) riskText = "高 (亏损)";
+        else if (p.grossRate < 10) riskText = "中 (低利)";
+        else if (p.grossRate < 20) riskText = "低 (一般)";
+        else riskText = "安全 (健康)";
+        
+        const salesVolume = item.salesVolume !== undefined ? item.salesVolume : (item.orders || 0);
+        
+        skuDetailRows.push({
+            "区域": item.siteRegion || "",
+            "店铺": item.shop || "",
+            "ASIN": item.asin || "",
+            "SKU": item.sku || "",
+            "产品名称": item.productName || "",
+            "产品类型": item.productType || "未分类",
+            "是否新品": item.isNew ? "是" : "否",
+            "销售金额(￥)": Math.round(item.salesAmountCNY),
+            "销售金额(USD)": salesUsd.toFixed(2),
+            "毛利(￥)": Math.round(p.profit),
+            "毛利率(%)": p.grossRate.toFixed(1),
+            "风险等级": riskText,
+            "广告占比(%)": p.adRate.toFixed(1),
+            "促销占比(%)": p.promoRate.toFixed(1),
+            "退款率(%)": p.refundRate.toFixed(1),
+            "采购占比(%)": p.purchaseRate.toFixed(1),
+            "仓租占比(%)": p.fbaRate.toFixed(1),
+            "库龄计提占比(%)": p.agingRate.toFixed(1),
+            "销量": salesVolume
+        });
+    });
+    
+    // 2. 区域毛利汇总（含新品指标）
+    const regions = ["US", "EU", "JP", "ME"];
+    const regionRows = [];
+    regions.forEach(r => {
+        const items = filteredData.filter(i => i.siteRegion === r);
+        let totalSalesCny = 0, totalProfit = 0;
+        items.forEach(i => {
+            totalSalesCny += i.salesAmountCNY;
+            totalProfit += calcProfitItem(i).profit;
+        });
+        const totalSalesUsd = cnyToUsd(totalSalesCny);
+        const totalMargin = totalSalesCny ? (totalProfit / totalSalesCny * 100).toFixed(1) : "0.0";
+        
+        const newItems = items.filter(i => i.isNew === true);
+        let newSalesCny = 0, newProfit = 0;
+        newItems.forEach(i => {
+            newSalesCny += i.salesAmountCNY;
+            newProfit += calcProfitItem(i).profit;
+        });
+        const newSalesUsd = cnyToUsd(newSalesCny);
+        const newMargin = newSalesCny ? (newProfit / newSalesCny * 100).toFixed(1) : "0.0";
+        
+        regionRows.push({
+            "区域": r,
+            "销售额(￥)": Math.round(totalSalesCny),
+            "销售额(USD)": totalSalesUsd.toFixed(2),
+            "毛利(￥)": Math.round(totalProfit),
+            "毛利率(%)": totalMargin,
+            "新品销售额(USD)": newSalesUsd.toFixed(2),
+            "新品毛利(￥)": Math.round(newProfit),
+            "新品毛利率(%)": newMargin
+        });
+    });
+    
+    // 3. 产品类型毛利汇总
+    const typeMap = new Map();
+    filteredData.forEach(item => {
+        const type = item.productType || "未分类";
+        if (!typeMap.has(type)) typeMap.set(type, { sales: 0, profit: 0 });
+        const rec = typeMap.get(type);
+        rec.sales += item.salesAmountCNY;
+        rec.profit += calcProfitItem(item).profit;
+    });
+    const typeRows = [];
+    for (let [type, rec] of typeMap.entries()) {
+        const margin = rec.sales ? (rec.profit / rec.sales * 100).toFixed(1) : 0;
+        typeRows.push({
+            "产品类型": type,
+            "销售额(￥)": Math.round(rec.sales),
+            "毛利(￥)": Math.round(rec.profit),
+            "毛利率(%)": margin
+        });
+    }
+    
+    // 4. KPI指标汇总
+    let totalSalesVolume = 0, totalSalesCNY = 0, totalProfit = 0, totalCPC = 0, totalRefund = 0;
+    filteredData.forEach(item => {
+        totalSalesVolume += item.salesVolume || 0;
+        totalSalesCNY += item.salesAmountCNY;
+        totalProfit += calcProfitItem(item).profit;
+        totalCPC += item.cpcAdFee || 0;
+        totalRefund += item.refundAmount || 0;
+    });
+    const totalSalesUSD = cnyToUsd(totalSalesCNY);
+    const totalGrossRate = totalSalesCNY ? (totalProfit / totalSalesCNY * 100).toFixed(1) : 0;
+    const totalAdRate = totalSalesCNY ? (totalCPC / totalSalesCNY * 100).toFixed(1) : 0;
+    const totalRefundRate = totalSalesCNY ? (totalRefund / totalSalesCNY * 100).toFixed(1) : 0;
+    
+    const kpiRows = [{
+        "总销量": totalSalesVolume,
+        "总销售额(USD)": totalSalesUSD.toFixed(2),
+        "总毛利额(￥)": Math.round(totalProfit),
+        "总毛利率(%)": totalGrossRate,
+        "广告占比(%)": totalAdRate,
+        "退款占比(%)": totalRefundRate
+    }];
+    
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const wsSku = XLSX.utils.json_to_sheet(skuDetailRows);
+    const wsRegion = XLSX.utils.json_to_sheet(regionRows);
+    const wsType = XLSX.utils.json_to_sheet(typeRows);
+    const wsKpi = XLSX.utils.json_to_sheet(kpiRows);
+    
+    // 简单列宽设置
+    wsSku['!cols'] = [{wch:8},{wch:12},{wch:12},{wch:15},{wch:20},{wch:12},{wch:8},{wch:14},{wch:14},{wch:12},{wch:10},{wch:10},{wch:10},{wch:10},{wch:8},{wch:10},{wch:10},{wch:12},{wch:8}];
+    wsRegion['!cols'] = [{wch:8},{wch:14},{wch:14},{wch:12},{wch:10},{wch:16},{wch:14},{wch:12}];
+    wsType['!cols'] = [{wch:20},{wch:14},{wch:12},{wch:10}];
+    wsKpi['!cols'] = [{wch:10},{wch:16},{wch:14},{wch:12},{wch:12},{wch:12}];
+    
+    XLSX.utils.book_append_sheet(wb, wsSku, "SKU毛利明细");
+    XLSX.utils.book_append_sheet(wb, wsRegion, "区域毛利表现");
+    XLSX.utils.book_append_sheet(wb, wsType, "产品类型毛利");
+    XLSX.utils.book_append_sheet(wb, wsKpi, "KPI指标");
+    
+    const timestamp = new Date().toISOString().slice(0,19).replace(/:/g, '-');
+    let fileName = `毛利分析报表_${timestamp}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+}
+
+// ---------- 解析上传Excel (支持销量字段) ----------
+function loadExcelDataForProfit(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            const typeSheet = workbook.Sheets["产品类型"];
+            if (typeSheet) {
+                const typeRows = XLSX.utils.sheet_to_json(typeSheet);
+                productTypeMap.clear();
+                typeRows.forEach(row => {
+                    const asin = (row["ASIN"] || row["Asin"] || "").trim();
+                    const type = row["类型"] || "未分类";
+                    const name = row["名称"] || "";
+                    if (asin) productTypeMap.set(asin, { type, name });
+                });
+            } else {
+                productTypeMap.clear();
+            }
+            
+            const newSheet = workbook.Sheets["新品"];
+            newProductSet.clear();
+            if (newSheet) {
+                const newRows = XLSX.utils.sheet_to_json(newSheet);
+                newRows.forEach(row => {
+                    const sku = (row["SKU"] || "").trim();
+                    const status = row["3月"] || row["新品"] || "";
+                    if (sku && status === "新品") newProductSet.add(sku);
+                });
+            }
+            
+            const profitSheet = workbook.Sheets["毛利"];
+            if (!profitSheet) {
+                alert("❌ Excel中必须包含「毛利」工作表");
+                return;
+            }
+            const profitRows = XLSX.utils.sheet_to_json(profitSheet);
+            if (profitRows.length === 0) {
+                alert("❌ 毛利工作表为空");
+                return;
+            }
+            
+            const parsedProfit = [];
+            profitRows.forEach(row => {
+                const sku = (row["SKU"] || "").trim();
+                const shop = row["店铺"] || "";
+                const asin = (row["ASIN"] || "").trim();
+                const typeInfo = productTypeMap.get(asin) || { type: "未分类", name: sku };
+                const region = getRegionByShop(shop);
+                
+                const salesAmountCNY = Number(row["实际销售金额"]) || 0;
+                const profitFromExcel = Number(row["毛利"]) || 0;
+                let salesVolume = Number(row["销量"]);
+                if (isNaN(salesVolume)) salesVolume = Number(row["订单数"]);
+                if (isNaN(salesVolume)) salesVolume = Number(row["已订购商品数量"]);
+                if (isNaN(salesVolume)) salesVolume = 0;
+                
+                const cpcAdFee = Number(row["CPC广告费"]) || 0;
+                const discountAmount = Number(row["折扣金额"]) || 0;
+                const purchaseCost = Number(row["采购成本"]) || 0;
+                const refundAmount = Number(row["退款金额"]) || 0;
+                const fbaStorageFee = Number(row["FBA仓租"]) || 0;
+                const agingProvision = Number(row["库龄计提"]) || 0;
+                
+                if (salesAmountCNY === 0 && profitFromExcel === 0 && salesVolume === 0) return;
+                
+                parsedProfit.push({
+                    sku, shop, siteRegion: region, asin,
+                    productName: typeInfo.name || sku,
+                    productType: typeInfo.type,
+                    isNew: newProductSet.has(sku),
+                    salesAmountCNY, profitFromExcel, 
+                    salesVolume: salesVolume,
+                    orders: salesVolume,
+                    cpcAdFee, discountAmount, purchaseCost, refundAmount,
+                    fbaStorageFee, agingProvision
+                });
+            });
+            
+            if (parsedProfit.length === 0) {
+                alert("⚠️ 毛利工作表未检测到有效数据行 (请确保包含: 实际销售金额/毛利/销量等字段)");
+                return;
+            }
+            
+            grossProfitRawData = parsedProfit;
+            profitCurrentFilter = { site: "all", type: "all", product: "all" };
+            initProfitFilters();
+            renderProfitDashboard();
+            document.getElementById("fileInfo").innerHTML = `✅ 已加载：${file.name} | 毛利记录 ${grossProfitRawData.length} 条 | 销量字段已启用 | 新品标识已识别`;
+        } catch (err) {
+            console.error(err);
+            alert("❌ 解析Excel失败: " + err.message);
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// ---------- 演示数据 (包含新品标识) ----------
+function loadProfitDemo() {
+    productTypeMap.clear();
+    productTypeMap.set("B0XX1", { type: "太空舱背包", name: "太空舱背包L 灰色" });
+    productTypeMap.set("B0XX2", { type: "拓展双肩包", name: "网格拓展包 灰加大" });
+    productTypeMap.set("B0XX3", { type: "顶部拓展手提包", name: "顶部拓展框架包军绿" });
+    productTypeMap.set("B0XX4", { type: "宠物胸背带", name: "轻便透气宠物胸背带" });
+    
+    newProductSet.clear();
+    newProductSet.add("AM557692_1");
+    newProductSet.add("AM502957_4");
+    newProductSet.add("AM557732_1");
+    
+    grossProfitRawData = [
+        { sku: "AM557692_1", shop: "Pecute-0-JP", siteRegion: "JP", asin: "B0XX1", productName: "太空舱背包L 灰色", productType: "太空舱背包", isNew: true,
+          salesAmountCNY: 1320683, profitFromExcel: 320560, salesVolume: 230, orders: 230, cpcAdFee: 28000, discountAmount: 5000, purchaseCost: 620000, refundAmount: 22000, fbaStorageFee: 18000, agingProvision: 3200 },
+        { sku: "AM502957_4", shop: "Pecute-0-JP", siteRegion: "JP", asin: "B0XX2", productName: "网格拓展包 灰加大", productType: "拓展双肩包", isNew: true,
+          salesAmountCNY: 303667, profitFromExcel: 78200, salesVolume: 52, orders: 52, cpcAdFee: 8900, discountAmount: 2100, purchaseCost: 148000, refundAmount: 5800, fbaStorageFee: 4200, agingProvision: 800 },
+        { sku: "AM557732_1", shop: "Guyun-US", siteRegion: "US", asin: "B0XX3", productName: "顶部拓展框架包军绿", productType: "顶部拓展手提包", isNew: true,
+          salesAmountCNY: 67238, profitFromExcel: 18500, salesVolume: 173, orders: 173, cpcAdFee: 4200, discountAmount: 1900, purchaseCost: 32000, refundAmount: 3100, fbaStorageFee: 1200, agingProvision: 450 },
+        { sku: "PET-DOG-M", shop: "Ligaoo-DE", siteRegion: "EU", asin: "B0XX4", productName: "轻便透气宠物胸背带", productType: "宠物胸背带", isNew: false,
+          salesAmountCNY: 215000, profitFromExcel: 32500, salesVolume: 189, orders: 189, cpcAdFee: 12500, discountAmount: 3400, purchaseCost: 98000, refundAmount: 8700, fbaStorageFee: 3600, agingProvision: 620 },
+        { sku: "RISK-DEMO", shop: "Nirong-DE", siteRegion: "EU", asin: "B0XX5", productName: "测试高广告产品", productType: "高广告产品", isNew: false,
+          salesAmountCNY: 88000, profitFromExcel: 2800, salesVolume: 44, orders: 44, cpcAdFee: 13500, discountAmount: 500, purchaseCost: 45000, refundAmount: 6400, fbaStorageFee: 2000, agingProvision: 300 }
+    ];
+    
+    initProfitFilters();
+    renderProfitDashboard();
+    document.getElementById("fileInfo").innerHTML = "📦 演示数据已加载 (含销量 & 新品标识) | 支持上传真实Excel";
+}
+
+// ---------- 事件绑定 ----------
+function bindEvents() {
+    document.getElementById("applyProfitFilterBtn").addEventListener("click", applyProfitFilters);
+    document.getElementById("exportProfitBtn").addEventListener("click", exportFullReport);
+    
+    const uploadTrigger = document.getElementById("uploadTrigger");
+    const excelUpload = document.getElementById("excelUpload");
+    uploadTrigger.addEventListener("click", () => excelUpload.click());
+    excelUpload.addEventListener("change", (e) => {
+        if (e.target.files && e.target.files[0]) {
+            loadExcelDataForProfit(e.target.files[0]);
+        }
+    });
+    
+    const siteFilter = document.getElementById("profitSiteFilter");
+    const typeFilter = document.getElementById("profitTypeFilter");
+    siteFilter.addEventListener("change", onSiteChange);
+    typeFilter.addEventListener("change", onTypeChange);
+}
+
+window.onload = () => {
+    bindEvents();
+    loadProfitDemo();
+};
+</script>
+</body>
+</html>

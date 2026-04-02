@@ -1,0 +1,865 @@
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>亚马逊SP广告分析工具 - 报表导入 + 多维度分析 + Excel导出</title>
+    <!-- SheetJS 用于 Excel 导入导出 -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', 'Roboto', 'Microsoft YaHei', sans-serif;
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+            color: #1e293b;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(135deg, #232f3e 0%, #1a2533 100%);
+            color: white;
+            padding: 24px 32px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .header h1 small {
+            font-size: 14px;
+            font-weight: normal;
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 40px;
+        }
+        .upload-area {
+            background: rgba(255,255,255,0.12);
+            border-radius: 40px;
+            padding: 8px 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 12px;
+            backdrop-filter: blur(4px);
+            flex-wrap: wrap;
+        }
+        .upload-area label {
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .file-status {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+        .filters-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px 24px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: flex-end;
+            border: 1px solid #e2e8f0;
+        }
+        .filter-group {
+            flex: 1;
+            min-width: 180px;
+        }
+        .filter-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 6px;
+        }
+        .filter-group select, .filter-group input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 14px;
+            background: white;
+        }
+        .campaign-search-wrapper {
+            display: flex;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .campaign-search-wrapper input {
+            flex: 1;
+        }
+        .campaign-search-wrapper button {
+            padding: 0 16px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+        .campaign-search-wrapper button:hover {
+            background: #e2e8f0;
+        }
+        .matched-badge {
+            font-size: 12px;
+            margin-top: 6px;
+            color: #4b5563;
+            background: #f3f4f6;
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .btn-primary {
+            background: #ff9900;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #232f3e;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-primary:hover {
+            background: #e68a00;
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: white;
+            border: 1px solid #cbd5e1;
+            padding: 10px 20px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-outline:hover {
+            background: #f8fafc;
+            border-color: #ff9900;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 20px;
+            padding: 16px;
+            text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border: 1px solid #e9edf2;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-top: 8px;
+        }
+        .section-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 24px 0 16px 0;
+            border-left: 5px solid #ff9900;
+            padding-left: 16px;
+        }
+        .card {
+            background: white;
+            border-radius: 20px;
+            margin-bottom: 28px;
+            overflow-x: auto;
+            border: 1px solid #eef2f6;
+        }
+        .card-header {
+            padding: 14px 20px;
+            border-bottom: 1px solid #eef2f6;
+            font-weight: 700;
+            background: #fafcff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th {
+            text-align: left;
+            padding: 12px 12px;
+            background: #f8fafc;
+            font-weight: 600;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 40px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .badge-high { background: #fee2e2; color: #b91c1c; }
+        .badge-mid { background: #fff3e3; color: #c2410c; }
+        .badge-success { background: #e0f2fe; color: #0369a1; }
+        /* ACOS 高亮样式 (>30%) */
+        .acos-highlight {
+            background-color: #fee2e2;
+            color: #b91c1c;
+            font-weight: 600;
+            border-radius: 8px;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-bottom: 12px;
+        }
+        .footer-note {
+            background: #f1f5f9;
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 20px;
+            font-size: 13px;
+            text-align: center;
+        }
+        .threshold-input {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: #f8fafc;
+            border-radius: 40px;
+            padding: 0 12px;
+            height: 42px;
+        }
+        .threshold-input span {
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .threshold-input input {
+            width: 70px;
+            padding: 6px;
+            border-radius: 20px;
+            text-align: center;
+        }
+        @media (max-width: 700px) {
+            .filters-card { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📊 亚马逊SP广告分析工具 <small>智能搜索词报表 + Excel导出</small></h1>
+        <div class="upload-area">
+            📂 <label for="excelInput" style="cursor:pointer;">📎 上传广告报表 (Excel .xlsx/.xls)</label>
+            <input type="file" id="excelInput" accept=".xlsx, .xls, .csv" style="display:none" />
+            <span id="fileName" class="file-status">未上传文件，使用演示数据</span>
+            <button id="resetDemoBtn" class="btn-outline" style="padding:4px 12px; font-size:12px;">重置演示数据</button>
+        </div>
+    </div>
+
+    <!-- 筛选栏 -->
+    <div class="filters-card">
+        <div class="filter-group">
+            <label>📁 广告组合 (Portfolio)</label>
+            <select id="portfolioSelect"></select>
+        </div>
+        <div class="filter-group">
+            <label>🎯 广告活动 (Campaign) - 关键词搜索</label>
+            <div class="campaign-search-wrapper">
+                <input type="text" id="campaignSearchInput" placeholder="输入关键词，词组匹配（如：拉杆包）" autocomplete="off">
+                <button id="clearCampaignSearch" title="清除搜索">✖️</button>
+            </div>
+            <div id="matchedCampaignsInfo" class="matched-badge" style="display: none;"></div>
+        </div>
+        <div class="filter-group">
+            <label>🔍 广告组 (Ad Group)</label>
+            <select id="adGroupSelect"><option value="all">全部广告组</option></select>
+        </div>
+        <div class="filter-group threshold-input">
+            <span>⚠️ 零销售阈值(¥)</span>
+            <input type="number" id="zeroSalesThreshold" value="30" step="5" min="0">
+        </div>
+        <div>
+            <button class="btn-primary" id="applyFilterBtn">🔄 应用筛选 & 分析</button>
+            <button class="btn-outline" id="exportExcelBtn" style="margin-left:8px;">📎 导出Excel分析报告</button>
+        </div>
+    </div>
+
+    <!-- KPI卡片（新增曝光） -->
+    <div class="stats-grid" id="kpiContainer">
+        <div class="stat-card">💰 总花费<br><span class="stat-value">-</span></div>
+        <div class="stat-card">📈 总销售额<br><span class="stat-value">-</span></div>
+        <div class="stat-card">🎯 ACOS<br><span class="stat-value">-</span></div>
+        <div class="stat-card">👆 点击量<br><span class="stat-value">-</span></div>
+        <div class="stat-card">👀 曝光量<br><span class="stat-value">-</span></div>
+        <div class="stat-card">📦 总订单<br><span class="stat-value">-</span></div>
+    </div>
+
+    <!-- 广告组表现（新增曝光列，ACOS高亮） -->
+    <div class="section-title">📌 广告组表现 (Ad Group Name) <span style="font-size:12px;">按花费排序 | 🔴 红色背景表示ACOS > 30%</span></div>
+    <div class="card">
+        <div class="card-header">🏆 广告组明细 | ACOS / CTR / 转化率</div>
+        <div style="overflow-x: auto;">
+            <table id="adgroupTable">
+                <thead>
+                     <th>广告活动</th><th>广告组</th><th>花费(¥)</th><th>销售额(¥)</th><th>ACOS%</th><th>点击</th><th>曝光</th><th>CTR%</th><th>CPC(¥)</th><th>订单</th><th>转化率%</th>
+                </thead>
+                <tbody> <td colspan="11">加载中... </tbody>
+             </table>
+        </div>
+    </div>
+
+    <!-- 搜索词建议区块（各表新增曝光列） -->
+    <div class="section-title">🔎 搜索词优化建议</div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px,1fr)); gap: 20px;">
+        <div class="card"><div class="card-header">⚠️ 零销售搜索词 (花费≥阈值)</div>
+            <table id="zeroSalesTable"><thead> <th>搜索词</th><th>花费</th><th>点击</th><th>曝光</th><th>建议</th> </thead><tbody> <td colspan="5">暂无数据 </tbody> </table>
+        </div>
+        <div class="card"><div class="card-header">🔥 高转化搜索词 (ACOS<30% & 订单≥1)</div>
+            <table id="highConvTable"><thead> <th>搜索词</th><th>花费</th><th>销售额</th><th>ACOS%</th><th>点击</th><th>曝光</th><th>订单</th><th>建议</th> </thead><tbody> <td colspan="8">暂无 </tbody> </table>
+        </div>
+        <div class="card"><div class="card-header">💸 高ACOS搜索词 (>50%)</div>
+            <table id="highAcosTable"><thead> <th>搜索词</th><th>花费</th><th>销售额</th><th>ACOS%</th><th>点击</th><th>曝光</th><th>建议</th> </thead><tbody> <td colspan="7">暂无 </tbody> </table>
+        </div>
+    </div>
+
+    <!-- 动作方案 -->
+    <div class="section-title">📋 智能动作方案 (优先级排序)</div>
+    <div class="card">
+        <div class="card-header">✅ 建议操作清单 | 否定关键词 / 扩量 / 广告组优化</div>
+        <table id="actionPlanTable"><thead> <th>动作类型</th><th>优先级</th><th>关键词/广告组</th><th>当前表现</th><th>建议动作</th><th>预期效果</th> </thead><tbody> <td colspan="6">点击「应用筛选」生成方案 </tbody> </table>
+    </div>
+    <div class="footer-note">💡 支持上传亚马逊SP广告报表（需包含列：Portfolio name, Campaign Name, Ad Group Name, Customer Search Term, Spend, 7 Day Total Sales, Clicks, Impressions, 7 Day Total Orders (#)等）。系统自动聚合分析，并生成Excel报告。<br>🔎 广告活动支持词组匹配（包含关键词即显示），可一次查看多个相关活动的汇总数据。<br>📊 新增曝光数据展示，ACOS > 30% 的单元格将高亮显示。</div>
+</div>
+
+<script>
+    let rawData = [];       // 存储原始明细行
+    let currentPortfolioVal = "全部";
+    let currentCampaignKeyword = "";   // 广告活动搜索关键词
+    let currentAdGroupVal = "all";
+    let filteredTerms = [], filteredAdGroups = [];
+
+    // ========== 辅助函数：列名模糊匹配 ==========
+    function fuzzyMatch(keys, targetVariants) {
+        const lowerTargets = targetVariants.map(v => v.toLowerCase().replace(/[()\s]/g, ''));
+        for (let key of keys) {
+            const cleanKey = String(key).toLowerCase().replace(/[()\s]/g, '');
+            if (lowerTargets.includes(cleanKey)) return key;
+        }
+        return null;
+    }
+
+    function mapColumn(row, possibleNames) {
+        const keys = Object.keys(row);
+        const matchedKey = fuzzyMatch(keys, possibleNames);
+        return matchedKey ? row[matchedKey] : undefined;
+    }
+
+    // 解析上传的Excel
+    function parseExcelToData(data) {
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+        if (!rows.length) throw new Error("Excel无数据");
+
+        const mapped = rows.map(row => {
+            const portfolio = mapColumn(row, ['Portfolio name', 'Portfolio', '组合名称']) || "未分组";
+            const campaign = mapColumn(row, ['Campaign Name', 'Campaign', '广告活动名称']) || "未分组";
+            const adGroup = mapColumn(row, ['Ad Group Name', 'Ad Group', '广告组名称']) || "未分组";
+            const searchTerm = mapColumn(row, ['Customer Search Term', 'Search Term', '搜索词']) || "-";
+            const spend = parseFloat(mapColumn(row, ['Spend', '花费', 'Spend (USD)']) || 0);
+            const sales = parseFloat(mapColumn(row, ['7 Day Total Sales', '7 Day Total Sales (USD)', '7日总销售额']) || 0);
+            const clicks = parseInt(mapColumn(row, ['Clicks', '点击量']) || 0);
+            const impressions = parseInt(mapColumn(row, ['Impressions', '曝光量']) || 0);
+            const orders = parseInt(mapColumn(row, ['7 Day Total Orders (#)', '7 Day Total Orders', '7日订单数']) || 0);
+            return { Portfolio: portfolio, Campaign: campaign, AdGroup: adGroup, SearchTerm: searchTerm,
+                Spend: spend, Sales: sales, Clicks: clicks, Impressions: impressions, Orders: orders };
+        }).filter(d => d.SearchTerm && d.SearchTerm !== "-");
+
+        const hasSpend = mapped.some(d => d.Spend > 0);
+        const hasSales = mapped.some(d => d.Sales > 0);
+        if (!hasSpend && !hasSales) {
+            throw new Error("未检测到有效花费或销售额数据，请检查列名是否包含 Spend / 7 Day Total Sales");
+        }
+        return mapped;
+    }
+
+    // 演示数据（增加曝光值）
+    function loadDemoData() {
+        rawData = [
+            { Portfolio: "BAG 包", Campaign: "QX|拉杆包|SP|自动", AdGroup: "拉杆包|SP|自动", SearchTerm: "ペットカート", Spend: 45, Sales: 0, Clicks:1, Impressions:30, Orders:0 },
+            { Portfolio: "BAG 包", Campaign: "QX|拓展包|SP|Auto|F", AdGroup: "QX|拓展包|SP|Auto|F", SearchTerm: "10k 犬 キャリーケース", Spend: 43.75, Sales: 0, Clicks:1, Impressions:22, Orders:0 },
+            { Portfolio: "车载组", Campaign: "伸缩牵引绳带垃圾盒|SP|自动", AdGroup: "伸缩绳带垃圾盒|SP|自动", SearchTerm: "10m リード", Spend: 7.5, Sales: 7270, Clicks:1, Impressions:10, Orders:2 },
+            { Portfolio: "车载组", Campaign: "10牵引绳 sp auto", AdGroup: "广告组 - 2024/12/18 19:13:12.253", SearchTerm: "10m リード", Spend: 64, Sales: 0, Clicks:1, Impressions:40, Orders:0 },
+            { Portfolio: "BAG 包", Campaign: "QX|双肩包ALL|SP|KW|B|lb 11-25", AdGroup: "QX|双肩包ALL|SP|KW|B|lb 11-25", SearchTerm: "10キロ 犬 リュック", Spend: 30, Sales: 0, Clicks:1, Impressions:33, Orders:0 },
+            { Portfolio: "车载组", Campaign: "10牵引绳 sp auto", AdGroup: "广告组 - 2024/12/18 19:13:12.253", SearchTerm: "10メートルリード", Spend: 96, Sales: 3635, Clicks:2, Impressions:60, Orders:1 },
+            { Portfolio: "BAG 包", Campaign: "QX|拉杆包|SP|KW|宽泛|低竞价-固定", AdGroup: "拉杆包|SP|KW|宽泛|低竞价-固定", SearchTerm: "pecute ペットキャリー", Spend: 100, Sales: 5164, Clicks:2, Impressions:830, Orders:1 },
+            { Portfolio: "BAG 包", Campaign: "QX|拉杆包|SP|KW|宽泛|低竞价-固定", AdGroup: "拉杆包|SP|KW|宽泛|低竞价-固定", SearchTerm: "55 x 40 x 23cm キャリー ペット", Spend: 100, Sales: 4527, Clicks:2, Impressions:30, Orders:1 },
+            { Portfolio: "BAG 包", Campaign: "QX|BAG|SP|Auto|UD|T10 10-15", AdGroup: "QX|BAG|SP|Auto|UD|T10 10-15", SearchTerm: "b0df7mkqdw", Spend: 12, Sales: 5436, Clicks:1, Impressions:11, Orders:1 },
+            { Portfolio: "车载组", Campaign: "伸缩牵引绳带垃圾盒|SP|自动", AdGroup: "伸缩绳带垃圾盒|SP|自动", SearchTerm: "amazon 犬リード", Spend: 35, Sales: 3636, Clicks:1, Impressions:70, Orders:1 },
+            { Portfolio: "车载组", Campaign: "伸缩牵引绳带垃圾盒|SP|自动", AdGroup: "伸缩绳带垃圾盒|SP|自动", SearchTerm: "10m 伸縮リード", Spend: 48.79, Sales: 0, Clicks:2, Impressions:90, Orders:0 },
+            { Portfolio:"车载组", Campaign:"伸缩牵引绳带垃圾盒|SP|自动", AdGroup:"伸缩绳带垃圾盒|SP|自动", SearchTerm:"模拟长尾词", Spend:205, Sales:3635, Clicks:8, Impressions:400, Orders:2 },
+            { Portfolio:"BAG 包", Campaign:"QX|双肩包ALL|SP|KW|B|lb 11-25", AdGroup:"QX|双肩包ALL|SP|KW|B|lb 11-25", SearchTerm:"高转化词示例", Spend:280, Sales:11450, Clicks:9, Impressions:310, Orders:3 },
+            { Portfolio:"BAG 包", Campaign:"QX|拉杆包|SP|KW|宽泛|低竞价-固定", AdGroup:"拉杆包|SP|KW|宽泛|低竞价-固定", SearchTerm:"大词测试", Spend:650, Sales:25180, Clicks:20, Impressions:950, Orders:7 },
+        ];
+    }
+
+    // 获取当前组合下的所有广告活动（未应用关键词筛选）
+    function getAllCampaignsForCurrentPortfolio() {
+        let filtered = rawData;
+        if (currentPortfolioVal !== "全部") filtered = filtered.filter(d => d.Portfolio === currentPortfolioVal);
+        return [...new Set(filtered.map(d => d.Campaign))].sort();
+    }
+
+    // 更新匹配的广告活动提示
+    function updateMatchedCampaignsInfo() {
+        const allCampaigns = getAllCampaignsForCurrentPortfolio();
+        let matched = allCampaigns;
+        if (currentCampaignKeyword.trim() !== "") {
+            const kw = currentCampaignKeyword.trim().toLowerCase();
+            matched = allCampaigns.filter(c => c.toLowerCase().includes(kw));
+        }
+        const infoDiv = document.getElementById('matchedCampaignsInfo');
+        if (matched.length === 0) {
+            infoDiv.style.display = "block";
+            infoDiv.innerHTML = "⚠️ 未找到匹配的广告活动";
+        } else if (currentCampaignKeyword.trim() !== "") {
+            infoDiv.style.display = "block";
+            infoDiv.innerHTML = `✅ 匹配到 ${matched.length} 个广告活动：${matched.slice(0,3).map(escapeHtml).join('、')}${matched.length > 3 ? '等' : ''}`;
+        } else {
+            infoDiv.style.display = "none";
+        }
+    }
+
+    // 根据当前筛选条件过滤原始数据
+    function filterRawData() {
+        let filtered = [...rawData];
+        if (currentPortfolioVal !== "全部") filtered = filtered.filter(d => d.Portfolio === currentPortfolioVal);
+        if (currentCampaignKeyword.trim() !== "") {
+            const kw = currentCampaignKeyword.trim().toLowerCase();
+            filtered = filtered.filter(d => d.Campaign.toLowerCase().includes(kw));
+        }
+        if (currentAdGroupVal !== "all") filtered = filtered.filter(d => d.AdGroup === currentAdGroupVal);
+        return filtered;
+    }
+
+    // 聚合搜索词和广告组
+    function aggregateData(filtered) {
+        // 聚合搜索词
+        const termMap = new Map();
+        filtered.forEach(d => {
+            const key = d.SearchTerm;
+            if (!termMap.has(key)) termMap.set(key, { spend:0, sales:0, clicks:0, impressions:0, orders:0 });
+            const t = termMap.get(key);
+            t.spend += d.Spend;
+            t.sales += d.Sales;
+            t.clicks += d.Clicks;
+            t.impressions += d.Impressions;
+            t.orders += d.Orders;
+        });
+        const terms = Array.from(termMap.entries()).map(([term, agg]) => ({
+            term, spend: agg.spend, sales: agg.sales, clicks: agg.clicks,
+            impressions: agg.impressions, orders: agg.orders,
+            acos: agg.sales > 0 ? (agg.spend / agg.sales) * 100 : Infinity
+        }));
+
+        // 广告组聚合
+        const adGroupMap = new Map();
+        filtered.forEach(d => {
+            const key = `${d.Campaign}|${d.AdGroup}`;
+            if (!adGroupMap.has(key)) adGroupMap.set(key, { campaign: d.Campaign, adgroup: d.AdGroup, spend:0, sales:0, clicks:0, impressions:0, orders:0 });
+            const g = adGroupMap.get(key);
+            g.spend += d.Spend;
+            g.sales += d.Sales;
+            g.clicks += d.Clicks;
+            g.impressions += d.Impressions;
+            g.orders += d.Orders;
+        });
+        let adGroups = Array.from(adGroupMap.values()).map(g => {
+            const acos = g.sales > 0 ? (g.spend / g.sales)*100 : Infinity;
+            const ctr = g.impressions > 0 ? (g.clicks / g.impressions)*100 : 0;
+            const cpc = g.clicks > 0 ? g.spend / g.clicks : 0;
+            const convRate = g.clicks > 0 ? (g.orders / g.clicks)*100 : 0;
+            return {...g, acos, ctr, cpc, convRate};
+        });
+        adGroups.sort((a,b)=>b.spend - a.spend);
+        return { terms, adGroups };
+    }
+
+    // 格式化ACOS
+    function formatAcos(acos) {
+        if (!isFinite(acos) || acos > 1000) return "—";
+        if (acos > 100) return ">100%";
+        return acos.toFixed(1) + "%";
+    }
+
+    // 判断是否需要高亮（ACOS > 30% 且非无穷大）
+    function shouldHighlightAcos(acos) {
+        return isFinite(acos) && acos > 30;
+    }
+
+    function renderKPI(filtered) {
+        const totalSpend = filtered.reduce((s,d)=>s+d.Spend,0);
+        const totalSales = filtered.reduce((s,d)=>s+d.Sales,0);
+        const totalClicks = filtered.reduce((s,d)=>s+d.Clicks,0);
+        const totalImpressions = filtered.reduce((s,d)=>s+d.Impressions,0);
+        const totalOrders = filtered.reduce((s,d)=>s+d.Orders,0);
+        const acos = totalSales > 0 ? (totalSpend/totalSales)*100 : 0;
+        document.getElementById('kpiContainer').innerHTML = `
+            <div class="stat-card">💰 总花费<br><span class="stat-value">¥${totalSpend.toFixed(0)}</span></div>
+            <div class="stat-card">📈 总销售额<br><span class="stat-value">¥${totalSales.toFixed(0)}</span></div>
+            <div class="stat-card">🎯 ACOS<br><span class="stat-value">${acos.toFixed(1)}%</span></div>
+            <div class="stat-card">👆 点击量<br><span class="stat-value">${totalClicks}</span></div>
+            <div class="stat-card">👀 曝光量<br><span class="stat-value">${totalImpressions}</span></div>
+            <div class="stat-card">📦 总订单<br><span class="stat-value">${totalOrders}</span></div>
+        `;
+    }
+
+    function renderAdGroupTable() {
+        const tbody = document.querySelector('#adgroupTable tbody');
+        if (!filteredAdGroups.length) { tbody.innerHTML='<tr><td colspan="11">无数据</td></tr>'; return; }
+        tbody.innerHTML = filteredAdGroups.slice(0,15).map(g => {
+            const acosDisplay = formatAcos(g.acos);
+            const highlightClass = shouldHighlightAcos(g.acos) ? 'class="acos-highlight"' : '';
+            return `
+            <tr>
+                <td>${escapeHtml(g.campaign)}</td>
+                <td>${escapeHtml(g.adgroup)}</td>
+                <td>${g.spend.toFixed(0)}</td>
+                <td>${g.sales.toFixed(0)}</td>
+                <td ${highlightClass}>${acosDisplay}</td>
+                <td>${g.clicks}</td>
+                <td>${g.impressions}</td>
+                <td>${g.ctr.toFixed(1)}%</td>
+                <td>${g.cpc.toFixed(1)}</td>
+                <td>${g.orders}</td>
+                <td>${g.convRate.toFixed(1)}%</td>
+            </tr>`;
+        }).join('');
+    }
+
+    function renderZeroSales() {
+        const threshold = parseFloat(document.getElementById('zeroSalesThreshold').value) || 30;
+        const zero = filteredTerms.filter(t => t.spend >= threshold && t.sales === 0).sort((a,b)=>b.spend - a.spend);
+        const tbody = document.querySelector('#zeroSalesTable tbody');
+        if (!zero.length) { tbody.innerHTML='<tr><td colspan="5">✅ 暂无高花费零销售词</td></tr>'; return; }
+        tbody.innerHTML = zero.slice(0,12).map(t => `
+            <tr>
+                <td style="max-width:200px;">${escapeHtml(t.term)}</td>
+                <td>¥${t.spend.toFixed(0)}</td>
+                <td>${t.clicks}</td>
+                <td>${t.impressions}</td>
+                <td><span class="badge badge-high">添加否定</span></td>
+            </tr>
+        `).join('');
+    }
+
+    function renderHighConv() {
+        const high = filteredTerms.filter(t => t.orders >= 1 && t.acos < 30).sort((a,b)=>b.sales - a.sales);
+        const tbody = document.querySelector('#highConvTable tbody');
+        if (!high.length) { tbody.innerHTML='<tr><td colspan="8">暂无</td></tr>'; return; }
+        tbody.innerHTML = high.slice(0,12).map(t => `
+            <tr>
+                <td>${escapeHtml(t.term)}</td>
+                <td>¥${t.spend.toFixed(0)}</td>
+                <td>¥${t.sales.toFixed(0)}</td>
+                <td>${formatAcos(t.acos)}</td>
+                <td>${t.clicks}</td>
+                <td>${t.impressions}</td>
+                <td>${t.orders}</td>
+                <td><span class="badge badge-success">提高出价+扩量</span></td>
+            </tr>
+        `).join('');
+    }
+
+    function renderHighAcos() {
+        const highA = filteredTerms.filter(t => t.spend >= 30 && t.sales > 0 && t.acos > 50).sort((a,b)=>b.acos - a.acos);
+        const tbody = document.querySelector('#highAcosTable tbody');
+        if (!highA.length) { tbody.innerHTML='<tr><td colspan="7">暂无高ACOS词</td></tr>'; return; }
+        tbody.innerHTML = highA.slice(0,12).map(t => {
+            const suggestion = t.acos > 100 ? "强烈建议否定" : "降出价/优化匹配方式";
+            const badgeClass = t.acos > 100 ? "badge-high" : "badge-mid";
+            return `
+            <tr>
+                <td>${escapeHtml(t.term)}</td>
+                <td>¥${t.spend.toFixed(0)}</td>
+                <td>¥${t.sales.toFixed(0)}</td>
+                <td>${formatAcos(t.acos)}</td>
+                <td>${t.clicks}</td>
+                <td>${t.impressions}</td>
+                <td><span class="badge ${badgeClass}">${suggestion}</span></td>
+            </tr>`;
+        }).join('');
+    }
+
+    function generateActionPlanArray() {
+        const actions = [];
+        const threshold = parseFloat(document.getElementById('zeroSalesThreshold').value) || 30;
+        filteredTerms.filter(t => t.spend >= threshold && t.sales === 0).slice(0,8).forEach(t => {
+            actions.push({ type:"否定关键词", priority:"高", target:t.term, perf:`花费¥${t.spend.toFixed(0)}, 点击${t.clicks}, 曝光${t.impressions}`, suggestion:"添加为否定关键词", effect:`节省¥${t.spend.toFixed(0)}` });
+        });
+        filteredTerms.filter(t => t.orders >= 1 && t.acos < 30).slice(0,8).forEach(t => {
+            actions.push({ type:"积极扩量", priority:"高", target:t.term, perf:`ACOS ${formatAcos(t.acos)}, 订单${t.orders}, 曝光${t.impressions}`, suggestion:"精准匹配+提高出价15%", effect:"预计销售额提升30%" });
+        });
+        filteredAdGroups.filter(g => g.spend > 50 && g.acos > 40 && g.orders < 2).slice(0,5).forEach(g => {
+            actions.push({ type:"广告组优化", priority:"中", target:`${g.campaign} > ${g.adgroup}`, perf:`花费¥${g.spend.toFixed(0)}, ACOS ${formatAcos(g.acos)}, 曝光${g.impressions}`, suggestion:"添加否定词，优化创意", effect:"降低ACOS至30%" });
+        });
+        filteredAdGroups.filter(g => g.orders >= 2 && g.acos < 25).slice(0,5).forEach(g => {
+            actions.push({ type:"广告组扩量", priority:"高", target:`${g.campaign} > ${g.adgroup}`, perf:`ACOS ${formatAcos(g.acos)}, 订单${g.orders}, 曝光${g.impressions}`, suggestion:"增加预算20%，扩展关键词", effect:"增量曝光+销量提升" });
+        });
+        return actions;
+    }
+
+    function renderActionPlan() {
+        const actions = generateActionPlanArray();
+        const tbody = document.querySelector('#actionPlanTable tbody');
+        if (!actions.length) { tbody.innerHTML='<tr><td colspan="6">暂无动作建议，可调整筛选</td></tr>'; return; }
+        tbody.innerHTML = actions.map(a => `
+            <tr>
+                <td>${a.type}</td>
+                <td><span class="badge ${a.priority==='高'?'badge-high':'badge-mid'}">${a.priority}</span></td>
+                <td>${escapeHtml(a.target)}</td>
+                <td>${escapeHtml(a.perf)}</td>
+                <td>${a.suggestion}</td>
+                <td>${a.effect}</td>
+            </tr>
+        `).join('');
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // 刷新整个仪表板
+    function refreshDashboard() {
+        const filtered = filterRawData();
+        const { terms, adGroups } = aggregateData(filtered);
+        filteredTerms = terms;
+        filteredAdGroups = adGroups;
+        renderKPI(filtered);
+        renderAdGroupTable();
+        renderZeroSales();
+        renderHighConv();
+        renderHighAcos();
+        renderActionPlan();
+        updateFilterSelects();
+        updateMatchedCampaignsInfo();
+    }
+
+    // 更新组合和广告组下拉（依赖当前组合和广告活动关键词）
+    function updateFilterSelects() {
+        // 更新组合下拉
+        const portfolios = ["全部", ...new Set(rawData.map(d=>d.Portfolio))];
+        const portfolioSel = document.getElementById('portfolioSelect');
+        portfolioSel.innerHTML = portfolios.map(p => `<option value="${p}" ${currentPortfolioVal===p?'selected':''}>${p}</option>`).join('');
+
+        // 更新广告组下拉：基于当前组合和广告活动关键词筛选后的数据
+        let filteredForAd = rawData;
+        if (currentPortfolioVal !== "全部") filteredForAd = filteredForAd.filter(d=>d.Portfolio===currentPortfolioVal);
+        if (currentCampaignKeyword.trim() !== "") {
+            const kw = currentCampaignKeyword.trim().toLowerCase();
+            filteredForAd = filteredForAd.filter(d=>d.Campaign.toLowerCase().includes(kw));
+        }
+        const adGroups = ["all", ...new Set(filteredForAd.map(d=>d.AdGroup))];
+        const adSel = document.getElementById('adGroupSelect');
+        adSel.innerHTML = adGroups.map(ag => `<option value="${ag}" ${currentAdGroupVal===ag?'selected':''}>${ag==='all'?'全部广告组':escapeHtml(ag)}</option>`).join('');
+        if (currentAdGroupVal !== "all" && !adGroups.includes(currentAdGroupVal)) {
+            currentAdGroupVal = "all";
+            adSel.value = "all";
+        }
+    }
+
+    // 导出Excel（所有sheet增加曝光字段）
+    function exportToExcel() {
+        const filtered = filterRawData();
+        const { terms, adGroups } = aggregateData(filtered);
+        const totalSpend = filtered.reduce((s,d)=>s+d.Spend,0);
+        const totalSales = filtered.reduce((s,d)=>s+d.Sales,0);
+        const totalImpressions = filtered.reduce((s,d)=>s+d.Impressions,0);
+        const summary = [
+            { 指标:"总花费(¥)", 数值:totalSpend.toFixed(2) },
+            { 指标:"总销售额(¥)", 数值:totalSales.toFixed(2) },
+            { 指标:"ACOS(%)", 数值:totalSales>0?((totalSpend/totalSales)*100).toFixed(2):"0" },
+            { 指标:"总曝光量", 数值:totalImpressions }
+        ];
+        const adGroupExport = adGroups.map(g => ({ 
+            广告活动:g.campaign, 广告组:g.adgroup, 花费:g.spend, 销售额:g.sales, 
+            ACOS:formatAcos(g.acos), 点击:g.clicks, 曝光:g.impressions, 
+            CTR:g.ctr.toFixed(1)+"%", CPC:g.cpc.toFixed(2), 订单:g.orders, 转化率:g.convRate.toFixed(1)+"%" 
+        }));
+        const termExport = terms.map(t => ({ 
+            搜索词:t.term, 花费:t.spend, 销售额:t.sales, ACOS:formatAcos(t.acos), 
+            点击:t.clicks, 曝光:t.impressions, 订单:t.orders 
+        }));
+        const threshold = parseFloat(document.getElementById('zeroSalesThreshold').value) || 30;
+        const zeroSales = terms.filter(t=>t.spend >= threshold && t.sales===0).map(t=>({ 
+            搜索词:t.term, 花费:t.spend, 点击:t.clicks, 曝光:t.impressions, 建议:"添加否定关键词" 
+        }));
+        const highConv = terms.filter(t=>t.orders>=1 && t.acos<30).map(t=>({ 
+            搜索词:t.term, 花费:t.spend, 销售额:t.sales, ACOS:formatAcos(t.acos), 
+            点击:t.clicks, 曝光:t.impressions, 订单:t.orders, 建议:"提高出价+扩量" 
+        }));
+        const actionPlanExport = generateActionPlanArray().map(a => ({ 
+            动作类型:a.type, 优先级:a.priority, 对象:a.target, 表现:a.perf, 建议动作:a.suggestion, 预期效果:a.effect 
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const wsSummary = XLSX.utils.json_to_sheet(summary);
+        const wsAdGroup = XLSX.utils.json_to_sheet(adGroupExport);
+        const wsTerms = XLSX.utils.json_to_sheet(termExport);
+        const wsZero = XLSX.utils.json_to_sheet(zeroSales);
+        const wsHigh = XLSX.utils.json_to_sheet(highConv);
+        const wsAction = XLSX.utils.json_to_sheet(actionPlanExport);
+        XLSX.utils.book_append_sheet(wb, wsSummary, "整体概览");
+        XLSX.utils.book_append_sheet(wb, wsAdGroup, "广告组分析");
+        XLSX.utils.book_append_sheet(wb, wsTerms, "搜索词明细");
+        XLSX.utils.book_append_sheet(wb, wsZero, "零销售否定建议");
+        XLSX.utils.book_append_sheet(wb, wsHigh, "高转化扩量建议");
+        XLSX.utils.book_append_sheet(wb, wsAction, "智能动作方案");
+
+        const now = new Date();
+        const timestamp = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}_${now.getHours()}-${now.getMinutes()}-${now.getSeconds()}`;
+        XLSX.writeFile(wb, `亚马逊广告分析_${timestamp}.xlsx`);
+    }
+
+    function resetFiltersAndRefresh() {
+        currentPortfolioVal = "全部";
+        currentCampaignKeyword = "";
+        currentAdGroupVal = "all";
+        document.getElementById('campaignSearchInput').value = "";
+        refreshDashboard();
+    }
+
+    // 事件绑定
+    document.getElementById('excelInput').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                const data = new Uint8Array(evt.target.result);
+                const parsed = parseExcelToData(data);
+                rawData = parsed;
+                document.getElementById('fileName').innerHTML = `✅ ${file.name} (${rawData.length}行)`;
+                resetFiltersAndRefresh();
+            } catch (err) {
+                alert("解析失败: " + err.message);
+                console.error(err);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    document.getElementById('resetDemoBtn').addEventListener('click', () => {
+        loadDemoData();
+        document.getElementById('fileName').innerHTML = "🔄 已重置演示数据";
+        resetFiltersAndRefresh();
+    });
+
+    document.getElementById('applyFilterBtn').addEventListener('click', () => {
+        currentPortfolioVal = document.getElementById('portfolioSelect').value;
+        currentCampaignKeyword = document.getElementById('campaignSearchInput').value;
+        currentAdGroupVal = document.getElementById('adGroupSelect').value;
+        refreshDashboard();
+    });
+
+    document.getElementById('exportExcelBtn').addEventListener('click', () => exportToExcel());
+
+    // 清除搜索按钮
+    document.getElementById('clearCampaignSearch').addEventListener('click', () => {
+        document.getElementById('campaignSearchInput').value = "";
+        currentCampaignKeyword = "";
+        refreshDashboard();
+    });
+
+    // 组合变化时更新广告组下拉预览（但不自动应用筛选）
+    document.getElementById('portfolioSelect').addEventListener('change', () => {
+        const tempPortfolio = document.getElementById('portfolioSelect').value;
+        const tempKeyword = document.getElementById('campaignSearchInput').value;
+        let filteredForAd = rawData;
+        if (tempPortfolio !== "全部") filteredForAd = filteredForAd.filter(d=>d.Portfolio===tempPortfolio);
+        if (tempKeyword.trim() !== "") {
+            const kw = tempKeyword.trim().toLowerCase();
+            filteredForAd = filteredForAd.filter(d=>d.Campaign.toLowerCase().includes(kw));
+        }
+        const adGroups = ["all", ...new Set(filteredForAd.map(d=>d.AdGroup))];
+        const adSel = document.getElementById('adGroupSelect');
+        const currentVal = adSel.value;
+        adSel.innerHTML = adGroups.map(ag => `<option value="${ag}" ${currentVal===ag?'selected':''}>${ag==='all'?'全部广告组':escapeHtml(ag)}</option>`).join('');
+        if (currentVal !== "all" && !adGroups.includes(currentVal)) {
+            adSel.value = "all";
+        }
+        updateMatchedCampaignsInfo();
+    });
+
+    // 搜索输入时实时更新匹配信息，并更新广告组下拉预览
+    document.getElementById('campaignSearchInput').addEventListener('input', (e) => {
+        const keyword = e.target.value;
+        const tempPortfolio = document.getElementById('portfolioSelect').value;
+        let allCampaigns = rawData;
+        if (tempPortfolio !== "全部") allCampaigns = allCampaigns.filter(d=>d.Portfolio===tempPortfolio);
+        const uniqueCampaigns = [...new Set(allCampaigns.map(d=>d.Campaign))];
+        let matched = uniqueCampaigns;
+        if (keyword.trim() !== "") {
+            const kw = keyword.trim().toLowerCase();
+            matched = uniqueCampaigns.filter(c => c.toLowerCase().includes(kw));
+        }
+        const infoDiv = document.getElementById('matchedCampaignsInfo');
+        if (matched.length === 0) {
+            infoDiv.style.display = "block";
+            infoDiv.innerHTML = "⚠️ 未找到匹配的广告活动";
+        } else if (keyword.trim() !== "") {
+            infoDiv.style.display = "block";
+            infoDiv.innerHTML = `✅ 匹配到 ${matched.length} 个广告活动：${matched.slice(0,3).map(escapeHtml).join('、')}${matched.length > 3 ? '等' : ''}`;
+        } else {
+            infoDiv.style.display = "none";
+        }
+        // 更新广告组下拉预览
+        let filteredForAd = rawData;
+        if (tempPortfolio !== "全部") filteredForAd = filteredForAd.filter(d=>d.Portfolio===tempPortfolio);
+        if (keyword.trim() !== "") {
+            const kw = keyword.trim().toLowerCase();
+            filteredForAd = filteredForAd.filter(d=>d.Campaign.toLowerCase().includes(kw));
+        }
+        const adGroups = ["all", ...new Set(filteredForAd.map(d=>d.AdGroup))];
+        const adSel = document.getElementById('adGroupSelect');
+        const currentVal = adSel.value;
+        adSel.innerHTML = adGroups.map(ag => `<option value="${ag}" ${currentVal===ag?'selected':''}>${ag==='all'?'全部广告组':escapeHtml(ag)}</option>`).join('');
+        if (currentVal !== "all" && !adGroups.includes(currentVal)) {
+            adSel.value = "all";
+        }
+    });
+
+    // 初始化
+    loadDemoData();
+    resetFiltersAndRefresh();
+</script>
+</body>
+</html>
+```

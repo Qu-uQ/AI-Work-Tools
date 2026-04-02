@@ -1,0 +1,461 @@
+好的，以下是包含**柏林、米兰、巴黎、马德里、伦敦、纽约、东京**七座城市的16天天气预报网页。高温提醒（≥20℃）依然保留，并会高亮显示当日卡片且增加标签。代码可直接保存为 `.html` 文件在浏览器中运行。
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>欧洲&美日七城16天天气预报 · 高温提醒</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            background: linear-gradient(145deg, #eef3fa 0%, #d9e4ed 100%);
+            min-height: 100vh;
+            padding: 2rem 1.5rem;
+            color: #1a2c38;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #1f4e62, #2d708b);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+            letter-spacing: -0.3px;
+        }
+
+        .badge {
+            background: #ffe6cc;
+            border-radius: 30px;
+            padding: 0.3rem 1rem;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-top: 0.5rem;
+            color: #b85c1a;
+            font-weight: 500;
+        }
+
+        .cities-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 2rem;
+            align-items: start;
+        }
+
+        .city-card {
+            background: rgba(255, 255, 255, 0.94);
+            backdrop-filter: blur(2px);
+            border-radius: 2rem;
+            box-shadow: 0 20px 35px -12px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            transition: transform 0.2s ease;
+        }
+
+        .city-card:hover {
+            transform: translateY(-4px);
+        }
+
+        .city-header {
+            background: linear-gradient(120deg, #2a5f74, #1b4354);
+            padding: 1rem 1.5rem;
+            color: white;
+        }
+
+        .city-name {
+            font-size: 1.7rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .city-name span:first-child {
+            font-size: 1.8rem;
+        }
+
+        .hot-summary {
+            font-size: 0.75rem;
+            background: rgba(255, 215, 170, 0.9);
+            color: #b64926;
+            border-radius: 40px;
+            padding: 0.2rem 0.8rem;
+            margin-top: 0.5rem;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .forecast-list {
+            padding: 0.8rem 1rem 1.2rem;
+            max-height: 550px;
+            overflow-y: auto;
+        }
+
+        .forecast-list::-webkit-scrollbar {
+            width: 6px;
+        }
+        .forecast-list::-webkit-scrollbar-track {
+            background: #e2eef4;
+            border-radius: 10px;
+        }
+        .forecast-list::-webkit-scrollbar-thumb {
+            background: #9bb7c6;
+            border-radius: 10px;
+        }
+
+        .forecast-day {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.07);
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+
+        .forecast-day.hot-alert {
+            background: #fff1e6;
+            border-radius: 1rem;
+            margin: 0.25rem 0;
+            padding: 0.75rem 0.5rem;
+            border-left: 4px solid #f39c12;
+        }
+
+        .day-info {
+            min-width: 88px;
+            font-weight: 600;
+            color: #1f4b5e;
+        }
+
+        .weekday {
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .date {
+            font-size: 0.7rem;
+            color: #5f7f91;
+            margin-left: 0.2rem;
+        }
+
+        .weather-icon {
+            font-size: 1.6rem;
+            min-width: 45px;
+            text-align: center;
+        }
+
+        .weather-desc {
+            flex: 1;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #2c6a7c;
+            text-transform: capitalize;
+            min-width: 70px;
+        }
+
+        .temp-range {
+            font-weight: 700;
+            background: #eef3f7;
+            padding: 0.2rem 0.7rem;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            white-space: nowrap;
+        }
+
+        .temp-max {
+            color: #c4452c;
+        }
+        .temp-min {
+            color: #2c7a8c;
+        }
+
+        .hot-warning {
+            background: #ffb347;
+            color: #5e2e00;
+            border-radius: 30px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.7rem;
+            font-weight: 700;
+            margin-left: 0.4rem;
+            white-space: nowrap;
+        }
+
+        .precip {
+            font-size: 0.7rem;
+            background: #e2ecf0;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            white-space: nowrap;
+            color: #3b6f83;
+        }
+
+        .loading-placeholder, .error-placeholder {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: #6b8a9c;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(44, 90, 110, 0.2);
+            border-top-color: #2c5a6e;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            vertical-align: middle;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 2.5rem;
+            font-size: 0.7rem;
+            color: #5f7c8c;
+            border-top: 1px solid rgba(0,0,0,0.1);
+            padding-top: 1.5rem;
+        }
+
+        @media (max-width: 700px) {
+            body {
+                padding: 1rem;
+            }
+            .forecast-list {
+                max-height: 480px;
+            }
+            .forecast-day {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🌍 七大城市 16天 天气预报</h1>
+        <div class="badge">🇩🇪柏林 · 🇮🇹米兰 · 🇫🇷巴黎 · 🇪🇸马德里 · 🇬🇧伦敦 · 🇺🇸纽约 · 🇯🇵东京 | 高温预警 ≥20°C</div>
+        <p style="font-size:0.8rem; margin-top:0.5rem; color:#3d6f85;">📌 数据源：Open‑Meteo（免费版最长16天预报）· 气温超过20℃时高亮显示并提示</p>
+    </div>
+
+    <div class="cities-grid" id="citiesGrid">
+        <!-- 动态填充 -->
+        <div class="city-card">
+            <div class="city-header"><div class="city-name">加载中...</div></div>
+            <div class="loading-placeholder"><div class="spinner"></div> 获取天气数据中</div>
+        </div>
+    </div>
+    <div class="footer">
+        🌡️ 高温提醒：当日最高气温 ≥ 20°C 时卡片会高亮并显示“🔥 超20℃”标签。<br>
+        ⏱️ 数据每30分钟自动刷新 | 支持16天趋势参考
+    </div>
+</div>
+
+<script>
+    // 城市列表（柏林、米兰、巴黎、马德里、伦敦、纽约、东京）
+    const CITIES = [
+        { name: "柏林", lat: 52.52, lon: 13.405, flag: "🇩🇪", emoji: "🏛️" },
+        { name: "米兰", lat: 45.4642, lon: 9.1900, flag: "🇮🇹", emoji: "🍝" },
+        { name: "巴黎", lat: 48.8566, lon: 2.3522, flag: "🇫🇷", emoji: "🗼" },
+        { name: "马德里", lat: 40.4168, lon: -3.7038, flag: "🇪🇸", emoji: "💃" },
+        { name: "伦敦", lat: 51.5074, lon: -0.1278, flag: "🇬🇧", emoji: "🎡" },
+        { name: "纽约", lat: 40.7128, lon: -74.0060, flag: "🇺🇸", emoji: "🗽" },
+        { name: "东京", lat: 35.6895, lon: 139.6917, flag: "🇯🇵", emoji: "🗼" }
+    ];
+
+    // WMO 天气代码转中文与图标
+    function getWeatherInfo(code) {
+        if (code === 0) return { text: "晴朗", icon: "☀️" };
+        if (code === 1) return { text: "大致晴朗", icon: "🌤️" };
+        if (code === 2) return { text: "局部多云", icon: "⛅" };
+        if (code === 3) return { text: "多云", icon: "☁️" };
+        if (code === 45 || code === 48) return { text: "雾", icon: "🌫️" };
+        if (code >= 51 && code <= 55) return { text: "毛毛雨", icon: "🌦️" };
+        if ((code >= 61 && code <= 65) || (code >= 80 && code <= 82)) return { text: "雨", icon: "🌧️" };
+        if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return { text: "雪", icon: "❄️" };
+        if (code >= 95 && code <= 99) return { text: "雷暴", icon: "⛈️" };
+        return { text: "多变", icon: "🌥️" };
+    }
+
+    // 获取16天预报 (Open-Meteo 最大 forecast_days = 16)
+    async function fetchCityWeather(city) {
+        const { name, lat, lon } = city;
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=16`;
+        try {
+            const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            if (!data.daily) throw new Error("缺少每日数据");
+            const daily = data.daily;
+            const timeArray = daily.time;
+            const weatherCodes = daily.weathercode;
+            const tempMax = daily.temperature_2m_max;
+            const tempMin = daily.temperature_2m_min;
+            const precipProb = daily.precipitation_probability_max;
+
+            const forecast = [];
+            for (let i = 0; i < timeArray.length; i++) {
+                const weather = getWeatherInfo(weatherCodes[i]);
+                forecast.push({
+                    date: timeArray[i],
+                    weatherText: weather.text,
+                    weatherIcon: weather.icon,
+                    tempMax: Math.round(tempMax[i]),
+                    tempMin: Math.round(tempMin[i]),
+                    precipProb: precipProb[i] !== undefined ? Math.round(precipProb[i]) : 0
+                });
+            }
+            return { success: true, cityName: name, forecast };
+        } catch (error) {
+            console.error(`获取${name}天气失败:`, error);
+            return { success: false, cityName: name, errorMsg: error.message };
+        }
+    }
+
+    // 日期格式化
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return dateStr;
+        return date.toLocaleDateString(undefined, { weekday: 'short', month: 'numeric', day: 'numeric' });
+    }
+
+    function getWeekday(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString(undefined, { weekday: 'short' });
+    }
+
+    // 渲染单个城市卡片 (带高温提醒)
+    function renderCityCard(city, weatherResult) {
+        const { name, flag, emoji } = city;
+        if (!weatherResult.success) {
+            return `
+                <div class="city-card">
+                    <div class="city-header">
+                        <div class="city-name"><span>${flag || "🌍"}</span> ${name}</div>
+                    </div>
+                    <div class="error-placeholder">⚠️ 数据加载失败<br>${weatherResult.errorMsg || "请检查网络"}</div>
+                </div>
+            `;
+        }
+        const forecast = weatherResult.forecast;
+        if (!forecast || forecast.length === 0) {
+            return `<div class="city-card"><div class="city-header"><div class="city-name">${name}</div></div><div class="error-placeholder">无预报数据</div></div>`;
+        }
+
+        // 统计高温天数 (最高温 > 20)
+        const hotDays = forecast.filter(day => day.tempMax > 20);
+        const hotCount = hotDays.length;
+        const hotSummaryHtml = hotCount > 0 
+            ? `<div class="hot-summary">🔥 高温提醒：未来${hotCount}天最高温超过20℃</div>` 
+            : `<div class="hot-summary" style="background:#e0f0f5; color:#2c5a6e;">❄️ 未来16天均未超20℃</div>`;
+
+        let daysHtml = '';
+        forecast.forEach(day => {
+            const isHot = day.tempMax > 20;
+            const weekday = getWeekday(day.date);
+            const dateDisplay = formatDate(day.date);
+            const precipText = day.precipProb > 0 ? `💧 ${day.precipProb}%` : '🌿 干燥';
+            const hotTag = isHot ? `<span class="hot-warning">🔥 超20℃</span>` : '';
+            const dayClass = isHot ? 'forecast-day hot-alert' : 'forecast-day';
+            daysHtml += `
+                <div class="${dayClass}">
+                    <div class="day-info">
+                        <span class="weekday">${weekday}</span>
+                        <span class="date">${dateDisplay}</span>
+                    </div>
+                    <div class="weather-icon">${day.weatherIcon}</div>
+                    <div class="weather-desc">${day.weatherText}</div>
+                    <div class="temp-range">
+                        <span class="temp-max">${day.tempMax}°</span> / 
+                        <span class="temp-min">${day.tempMin}°</span>
+                        ${hotTag}
+                    </div>
+                    <div class="precip">${precipText}</div>
+                </div>
+            `;
+        });
+
+        return `
+            <div class="city-card">
+                <div class="city-header">
+                    <div class="city-name">
+                        <span>${flag || "📍"}</span> ${name}
+                        <span style="font-size:1.2rem">${emoji || ""}</span>
+                    </div>
+                    <div class="coords" style="font-size:0.7rem; opacity:0.8;">${city.lat.toFixed(1)}°N / ${city.lon.toFixed(1)}°E · 16天预报</div>
+                    ${hotSummaryHtml}
+                </div>
+                <div class="forecast-list">
+                    ${daysHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    // 加载所有城市天气
+    async function loadAllWeather() {
+        const grid = document.getElementById('citiesGrid');
+        if (!grid) return;
+
+        // 显示占位骨架
+        grid.innerHTML = '';
+        CITIES.forEach(city => {
+            const placeholder = document.createElement('div');
+            placeholder.className = 'city-card';
+            placeholder.innerHTML = `
+                <div class="city-header">
+                    <div class="city-name"><span>${city.flag || "🌐"}</span> ${city.name}</div>
+                </div>
+                <div class="loading-placeholder"><div class="spinner"></div> 加载16天预报中...</div>
+            `;
+            grid.appendChild(placeholder);
+        });
+
+        // 并发请求
+        const promises = CITIES.map(city => fetchCityWeather(city));
+        const results = await Promise.all(promises);
+        const weatherMap = new Map();
+        results.forEach(res => weatherMap.set(res.cityName, res));
+
+        // 重新渲染
+        const finalHtml = CITIES.map(city => {
+            const weatherRes = weatherMap.get(city.name);
+            return renderCityCard(city, weatherRes);
+        }).join('');
+        grid.innerHTML = finalHtml;
+    }
+
+    // 页面启动 & 自动刷新 (30分钟)
+    document.addEventListener('DOMContentLoaded', () => {
+        loadAllWeather().catch(e => {
+            console.error(e);
+            const grid = document.getElementById('citiesGrid');
+            if (grid) grid.innerHTML = '<div class="city-card" style="grid-column:1/-1; text-align:center; padding:2rem;">⚠️ 天气服务暂时不可用，请刷新页面重试。</div>';
+        });
+        setInterval(() => {
+            loadAllWeather().catch(console.warn);
+        }, 30 * 60 * 1000);
+    });
+</script>
+</body>
+</html>
+```
