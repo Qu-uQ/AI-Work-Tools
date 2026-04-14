@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>亚马逊销售环比分析 | 完整差值 · 多维度环比 · 全量数据导出</title>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Roboto, sans-serif; }
+        body { background: #f4f5f7; padding: 24px 20px; }
+        .app-header { background: #232f3e; color: white; padding: 18px 28px; border-radius: 24px; margin-bottom: 28px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .logo-area h1 { font-size: 1.6rem; font-weight: 600; }
+        .logo-area p { font-size: 0.85rem; opacity: 0.8; }
+        .upload-area { background: #ff9900; padding: 8px 18px; border-radius: 40px; color: #232f3e; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .upload-area:hover { background: #e68a00; transform: scale(1.02); }
+        #fileInfo { font-size: 0.8rem; background: #2d3e4f; padding: 6px 14px; border-radius: 30px; color: #ddd; }
+        .card { background: white; border-radius: 20px; padding: 20px 24px; margin-bottom: 28px; box-shadow: 0 4px 14px rgba(0,0,0,0.03); border: 1px solid #e9ecef; }
+        .filter-bar { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; margin-bottom: 20px; }
+        .filter-group { flex: 1; min-width: 160px; }
+        .filter-group label { font-weight: 600; display: block; margin-bottom: 6px; font-size: 0.85rem; color: #2c3e50; }
+        select, button { width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid #ced4da; background: white; font-size: 0.9rem; }
+        .btn-primary { background: #ff9900; border: none; color: #232f3e; font-weight: bold; cursor: pointer; }
+        .btn-primary:hover { background: #e68a00; }
+        .btn-outline { background: #f8f9fa; border: 1px solid #ced4da; cursor: pointer; }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 10px; }
+        .kpi-card { background: #f8fafc; border-radius: 20px; padding: 16px; text-align: center; border-left: 4px solid #ff9900; }
+        .kpi-value { font-size: 2rem; font-weight: 800; color: #232f3e; }
+        .kpi-label { color: #5e6f8d; font-size: 0.85rem; }
+        .table-responsive { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+        th { background: #f1f3f5; padding: 12px 8px; text-align: left; font-weight: 600; position: sticky; top:0; }
+        td { padding: 10px 8px; border-bottom: 1px solid #e9ecef; }
+        tr:hover { background: #fff6e8; }
+        .badge { padding: 4px 10px; border-radius: 40px; font-size: 0.7rem; font-weight: bold; display: inline-block; }
+        .badge-high { background: #fee2e2; color: #b91c1c; }
+        .badge-mid { background: #fff0db; color: #c2410c; }
+        .badge-low { background: #e0f2e9; color: #2b6e3c; }
+        .trend-up { color: #2e7d32; font-weight: 600; }
+        .trend-down { color: #c62828; font-weight: 600; }
+        .section-title { font-size: 1.4rem; font-weight: 700; margin-bottom: 16px; border-left: 5px solid #ff9900; padding-left: 15px; }
+        .list-group { display: flex; flex-direction: column; gap: 10px; }
+        .list-item { background: #f8fafc; padding: 12px 16px; border-radius: 16px; display: flex; justify-content: space-between; align-items: center; border-left: 3px solid #ff9900; }
+        .list-name { font-weight: 600; width: 40%; }
+        .list-values { width: 60%; display: flex; gap: 20px; justify-content: flex-end; }
+        .list-values span { min-width: 80px; text-align: right; }
+    </style>
+</head>
+<body>
+
+<div class="app-header">
+    <div class="logo-area">
+        <h1><i class="fas fa-chart-line"></i> 亚马逊环比分析 · 多币种USD转换</h1>
+        <p>上月(3月) vs 上上月(2月) | 订单/销售额新增差值 | 一键导出全维度报告</p>
+    </div>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <div class="upload-area" id="uploadTrigger">
+            <i class="fas fa-upload"></i> 上传Excel报表
+            <input type="file" id="excelUpload" accept=".xlsx, .xls" style="display: none;">
+        </div>
+        <div id="fileInfo">📊 加载演示数据 | 实时汇率获取中...</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="filter-bar">
+        <div class="filter-group"><label><i class="fas fa-globe"></i> 账号/站点</label><select id="siteFilter"><option value="all">全部</option></select></div>
+        <div class="filter-group"><label><i class="fas fa-tag"></i> 产品类型</label><select id="typeFilter"><option value="all">全部</option></select></div>
+        <div class="filter-group"><label><i class="fas fa-box"></i> 品名/SKU</label><select id="productFilter"><option value="all">全部</option></select></div>
+        <div class="filter-group"><button id="applyFilterBtn" class="btn-primary"><i class="fas fa-filter"></i> 应用筛选</button></div>
+        <div class="filter-group"><button id="exportReportBtn" class="btn-primary" style="background:#2c7da0;"><i class="fas fa-file-excel"></i> 导出全量Excel报告</button></div>
+    </div>
+</div>
+
+<div class="kpi-grid" id="kpiContainer"></div>
+
+<div class="card">
+    <div class="section-title">📊 销售维度分析 (账号/站点 · 会话/转化率/订单/销售额 环比对比 + 差值)</div>
+    <div class="table-responsive" id="salesDetailTable"></div>
+</div>
+
+<div class="card">
+    <div class="section-title">🌍 区域表现 (US/EU/JP 折USD) — 会话/转化率/订单/销售额/新品销售额 环比 + 差值</div>
+    <div class="table-responsive" id="regionAnalysis"></div>
+</div>
+
+<div class="card">
+    <div class="section-title">🏷️ 产品类型环比分析 (会话/转化率/订单/销售额 环比对比 + 差值)</div>
+    <div class="table-responsive" id="productTypeAnalysis"></div>
+</div>
+
+<div class="card">
+    <div class="section-title">📊 产品维度洞察 (列表展示)</div>
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+        <div><h4>🚀 增长Top5 (销售额环比增量USD)</h4><div id="growthTop5" class="list-group"></div></div>
+        <div><h4>📉 下滑Top5 (销售额环比降幅USD)</h4><div id="declineTop5" class="list-group"></div></div>
+    </div>
+    <div style="margin-top: 20px;"><h4>⭐ 重点产品转化率变化 (销售额前6)</h4><div id="keyConversionTable" class="table-responsive"></div></div>
+</div>
+
+<div class="card">
+    <div class="section-title">⚠️ 异常波动预警 (±30% 销售额/订单)</div>
+    <div class="table-responsive" id="alertTable"></div>
+</div>
+
+<script>
+    const siteCurrencyMap = {
+        "Guyun-US": "USD", "Ligaoo-DE": "EUR", "Nirong-AE": "AED", "Nirong-BE": "EUR",
+        "Nirong-DE": "EUR", "Nirong-ES": "EUR", "Nirong-FR": "EUR", "Nirong-IE": "EUR",
+        "Nirong-IT": "EUR", "Nirong-NL": "EUR", "Nirong-PL": "PLN", "Nirong-SA": "SAR",
+        "Nirong-SE": "SEK", "Pecute-0-JP": "JPY"
+    };
+    function getCurrencyByAccountSite(accountSite) {
+        if (!accountSite) return "USD";
+        for (let [key, curr] of Object.entries(siteCurrencyMap)) {
+            if (accountSite.includes(key) || key.includes(accountSite)) return curr;
+        }
+        if (accountSite.includes("US")) return "USD";
+        if (accountSite.includes("DE") || accountSite.includes("FR") || accountSite.includes("IT") || accountSite.includes("ES") || accountSite.includes("NL") || accountSite.includes("BE")) return "EUR";
+        if (accountSite.includes("JP")) return "JPY";
+        if (accountSite.includes("PL")) return "PLN";
+        if (accountSite.includes("SE")) return "SEK";
+        return "USD";
+    }
+
+    let exchangeRates = { USD: 1, EUR: 1, JPY: 1, PLN: 1, SEK: 1, AED: 1, SAR: 1 };
+    let ratesLoaded = false;
+    let rawDetailData = [];
+    let productTypeMap = new Map();
+    let newProductSet = new Set();
+    let currentFilter = { site: "all", type: "all", product: "all" };
+
+    async function fetchExchangeRates() {
+        try {
+            const symbols = ["EUR", "JPY", "PLN", "SEK", "AED", "SAR"];
+            const response = await fetch(`https://api.frankfurter.app/latest?from=USD&to=${symbols.join(",")}`);
+            if (!response.ok) throw new Error("汇率接口异常");
+            const data = await response.json();
+            if (data.rates) {
+                exchangeRates.EUR = data.rates.EUR;
+                exchangeRates.JPY = data.rates.JPY;
+                exchangeRates.PLN = data.rates.PLN;
+                exchangeRates.SEK = data.rates.SEK;
+                exchangeRates.AED = data.rates.AED;
+                exchangeRates.SAR = data.rates.SAR;
+                ratesLoaded = true;
+                document.getElementById("fileInfo").innerHTML = (document.getElementById("fileInfo").innerHTML).replace("实时汇率获取中...", `汇率已更新 USD→EUR ${exchangeRates.EUR.toFixed(4)}`);
+            }
+        } catch (err) {
+            console.warn("汇率备用", err);
+            exchangeRates = { USD:1, EUR:0.92, JPY:148.2, PLN:3.95, SEK:10.45, AED:3.67, SAR:3.75 };
+            ratesLoaded = true;
+            document.getElementById("fileInfo").innerHTML = (document.getElementById("fileInfo").innerHTML).replace("实时汇率获取中...", "使用参考汇率");
+        }
+        renderDashboard();
+    }
+
+    function convertToUSD(amount, currency) { if (!amount) return 0; const rate = exchangeRates[currency] || 1; return amount / rate; }
+
+    async function loadExcelData(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            let febRows = [], marRows = [], productTypeRows = [], newRows = [];
+            workbook.SheetNames.forEach(name => {
+                const sheet = workbook.Sheets[name];
+                const json = XLSX.utils.sheet_to_json(sheet);
+                if (name.includes("2月")) febRows = json;
+                else if (name.includes("3月")) marRows = json;
+                else if (name.includes("产品类型")) productTypeRows = json;
+                else if (name.includes("新品")) newRows = json;
+            });
+            if (febRows.length === 0 || marRows.length === 0) { alert("需包含'2月'和'3月'工作表"); return; }
+            productTypeMap.clear();
+            productTypeRows.forEach(row => { let asin = row["Asin"] || row["ASIN"] || ""; let type = row["类型"] || "其他"; let name = row["名称"] || ""; if(asin) productTypeMap.set(asin, { type, name }); });
+            newProductSet.clear();
+            newRows.forEach(row => { let sku = row["SKU"] || ""; let status = row["3月"] || row["2月"] || ""; if(sku && status === "新品") newProductSet.add(sku); });
+
+            const detailMap = new Map();
+            const aggregateDetail = (rows, month) => {
+                rows.forEach(row => {
+                    let sku = row["SKU"] || "";
+                    let accountSite = row["账号/站点"] || "";
+                    let siteRegion = accountSite.includes("JP") ? "JP" : (accountSite.includes("US") ? "US" : "EU");
+                    let currency = getCurrencyByAccountSite(accountSite);
+                    let key = `${sku}_${accountSite}`;
+                    let sessions = Number(row["会话次数-合计"]) || 0;
+                    let orders = Number(row["已订购商品数量"]) || 0;
+                    let salesOrig = Number(row["已订购商品销售额"]) || 0;
+                    let salesUSD = convertToUSD(salesOrig, currency);
+                    if (!detailMap.has(key)) detailMap.set(key, {
+                        sku, accountSite, siteRegion, asin: row["ASIN"] || "", productName: row["品名"] || sku,
+                        sessions_prev:0, sessions_curr:0, orders_prev:0, orders_curr:0, salesUSD_prev:0, salesUSD_curr:0
+                    });
+                    let item = detailMap.get(key);
+                    if (month === "feb") { item.sessions_prev += sessions; item.orders_prev += orders; item.salesUSD_prev += salesUSD; }
+                    if (month === "mar") { item.sessions_curr += sessions; item.orders_curr += orders; item.salesUSD_curr += salesUSD; }
+                });
+            };
+            aggregateDetail(febRows, "feb");
+            aggregateDetail(marRows, "mar");
+            rawDetailData = [];
+            for (let [key, val] of detailMap.entries()) {
+                let convCurr = val.sessions_curr ? (val.orders_curr / val.sessions_curr * 100) : 0;
+                let convPrev = val.sessions_prev ? (val.orders_prev / val.sessions_prev * 100) : 0;
+                let asinInfo = productTypeMap.get(val.asin) || {};
+                let productType = asinInfo.type || "未分类";
+                let productDisplay = asinInfo.name || val.productName || val.sku;
+                let isNew = newProductSet.has(val.sku);
+                rawDetailData.push({
+                    sku: val.sku, accountSite: val.accountSite, siteRegion: val.siteRegion,
+                    productName: productDisplay, productType: productType, asin: val.asin, isNew,
+                    sessions_curr: val.sessions_curr, sessions_prev: val.sessions_prev,
+                    orders_curr: val.orders_curr, orders_prev: val.orders_prev,
+                    sales_curr: val.salesUSD_curr, sales_prev: val.salesUSD_prev,
+                    conv_curr: convCurr, conv_prev: convPrev
+                });
+            }
+            rawDetailData = rawDetailData.filter(d => d.sales_curr>0 || d.sales_prev>0);
+            updateFilterOptions();
+            renderDashboard();
+            document.getElementById("fileInfo").innerHTML = `📄 ${file.name} | ${rawDetailData.length} 条明细 (已转USD)`;
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function loadBuiltinDemo() {
+        rawDetailData = [
+            { sku:"AM557692_1", accountSite:"Pecute-0-JP", siteRegion:"JP", productName:"太空舱背包L 灰色", productType:"太空舱背包", isNew:true, sessions_curr:4862, sessions_prev:3814, orders_curr:230, orders_prev:164, sales_curr:1320683/148.2, sales_prev:980720/148.2, conv_curr:4.73, conv_prev:4.30 },
+            { sku:"AM502957_4", accountSite:"Pecute-0-JP", siteRegion:"JP", productName:"网格拓展包 灰加大", productType:"拓展双肩包", isNew:true, sessions_curr:1686, sessions_prev:1395, orders_curr:52, orders_prev:31, sales_curr:303667/148.2, sales_prev:200032/148.2, conv_curr:3.08, conv_prev:2.22 },
+            { sku:"AM557732_1", accountSite:"Guyun-US", siteRegion:"US", productName:"顶部拓展框架包军绿", productType:"顶部拓展手提包", isNew:true, sessions_curr:4346, sessions_prev:5354, orders_curr:173, orders_prev:162, sales_curr:9338, sales_prev:9308, conv_curr:3.98, conv_prev:3.03 },
+            { sku:"AM557800_1", accountSite:"Guyun-US", siteRegion:"US", productName:"顶部+单边拓展包军绿", productType:"顶部拓展手提包", isNew:true, sessions_curr:1536, sessions_prev:445, orders_curr:107, orders_prev:32, sales_curr:6770, sales_prev:2092, conv_curr:6.97, conv_prev:7.19 },
+            { sku:"AM557732_3", accountSite:"Nirong-FR", siteRegion:"EU", productName:"顶部拓展框架包深灰", productType:"顶部拓展手提包", isNew:true, sessions_curr:725, sessions_prev:751, orders_curr:27, orders_prev:33, sales_curr:1502/exchangeRates.EUR, sales_prev:1969/exchangeRates.EUR, conv_curr:3.72, conv_prev:4.39 },
+            { sku:"AM502858", accountSite:"Nirong-FR", siteRegion:"EU", productName:"宠物妈咪包", productType:"妈咪包", isNew:false, sessions_curr:923, sessions_prev:728, orders_curr:50, orders_prev:37, sales_curr:1859/exchangeRates.EUR, sales_prev:1478/exchangeRates.EUR, conv_curr:5.42, conv_prev:5.08 },
+            { sku:"AM556301_1", accountSite:"Nirong-DE", siteRegion:"EU", productName:"简易网格双肩包灰色", productType:"简易双肩包", isNew:true, sessions_curr:7796, sessions_prev:5547, orders_curr:310, orders_prev:180, sales_curr:11365/exchangeRates.EUR, sales_prev:6662/exchangeRates.EUR, conv_curr:3.98, conv_prev:3.24 },
+            { sku:"AM502857", accountSite:"Nirong-DE", siteRegion:"EU", productName:"加大号简易网格包", productType:"简易双肩包", isNew:true, sessions_curr:3102, sessions_prev:1832, orders_curr:160, orders_prev:99, sales_curr:7059/exchangeRates.EUR, sales_prev:4269/exchangeRates.EUR, conv_curr:5.16, conv_prev:5.40 },
+            { sku:"AM553972_1", accountSite:"Pecute-0-JP", siteRegion:"JP", productName:"框架手提包深灰", productType:"内置框架手提包", isNew:true, sessions_curr:2990, sessions_prev:2252, orders_curr:94, orders_prev:63, sales_curr:289536/148.2, sales_prev:207756/148.2, conv_curr:3.14, conv_prev:2.80 },
+            { sku:"AM555091_4", accountSite:"Pecute-0-JP", siteRegion:"JP", productName:"硬顶加宽背包军绿", productType:"硬顶加宽包", isNew:true, sessions_curr:2411, sessions_prev:2498, orders_curr:78, orders_prev:66, sales_curr:443040/148.2, sales_prev:374880/148.2, conv_curr:3.24, conv_prev:2.64 },
+            { sku:"AM474150_1", accountSite:"Pecute-0-JP", siteRegion:"JP", productName:"网格拓展包浅卡其", productType:"拓展双肩包", isNew:false, sessions_curr:4462, sessions_prev:4238, orders_curr:121, orders_prev:72, sales_curr:614129/148.2, sales_prev:427228/148.2, conv_curr:2.71, conv_prev:1.70 },
+            { sku:"AM557751_1", accountSite:"Pecute-0-JP", siteRegion:"JP", productName:"太空舱鹦鹉背包", productType:"太空舱鹦鹉包", isNew:true, sessions_curr:651, sessions_prev:464, orders_curr:29, orders_prev:17, sales_curr:159686/148.2, sales_prev:101660/148.2, conv_curr:4.45, conv_prev:3.66 },
+            { sku:"AM557670_2", accountSite:"Pecute-0-JP", siteRegion:"JP", productName:"日常框架手提包深灰", productType:"日常框架手提包", isNew:true, sessions_curr:2900, sessions_prev:2966, orders_curr:171, orders_prev:153, sales_curr:512172/148.2, sales_prev:492000/148.2, conv_curr:5.90, conv_prev:5.16 },
+            { sku:"AM557678_1", accountSite:"Nirong-DE", siteRegion:"EU", productName:"网格拓展包灰色", productType:"拓展双肩包", isNew:true, sessions_curr:1164, sessions_prev:720, orders_curr:19, orders_prev:17, sales_curr:863/exchangeRates.EUR, sales_prev:773/exchangeRates.EUR, conv_curr:1.63, conv_prev:2.36 }
+        ];
+        updateFilterOptions();
+        renderDashboard();
+    }
+
+    function updateFilterOptions() {
+        let filteredBySite = currentFilter.site === "all" ? rawDetailData : rawDetailData.filter(d => d.siteRegion === currentFilter.site);
+        let types = [...new Set(filteredBySite.map(d => d.productType))];
+        let products = [...new Set(filteredBySite.map(d => d.productName))];
+        let typeSel = document.getElementById("typeFilter");
+        let currentTypeVal = typeSel.value;
+        typeSel.innerHTML = '<option value="all">全部</option>' + types.map(t => `<option value="${t}">${t}</option>`).join('');
+        if (types.includes(currentTypeVal)) typeSel.value = currentTypeVal; else typeSel.value = "all";
+        let filteredByType = currentFilter.site === "all" ? rawDetailData : rawDetailData.filter(d => d.siteRegion === currentFilter.site);
+        if (currentFilter.type !== "all") filteredByType = filteredByType.filter(d => d.productType === currentFilter.type);
+        let productOptions = [...new Set(filteredByType.map(d => d.productName))];
+        let prodSel = document.getElementById("productFilter");
+        let currentProdVal = prodSel.value;
+        prodSel.innerHTML = '<option value="all">全部</option>' + productOptions.map(p => `<option value="${p}">${p}</option>`).join('');
+        if (productOptions.includes(currentProdVal)) prodSel.value = currentProdVal; else prodSel.value = "all";
+        let siteSel = document.getElementById("siteFilter");
+        let sites = [...new Set(rawDetailData.map(d=>d.siteRegion))];
+        siteSel.innerHTML = '<option value="all">全部</option>' + sites.map(s=>`<option value="${s}">${s}</option>`).join('');
+        siteSel.value = currentFilter.site;
+    }
+
+    function getFilteredData() {
+        let filtered = rawDetailData;
+        if (currentFilter.site !== "all") filtered = filtered.filter(d => d.siteRegion === currentFilter.site);
+        if (currentFilter.type !== "all") filtered = filtered.filter(d => d.productType === currentFilter.type);
+        if (currentFilter.product !== "all") filtered = filtered.filter(d => d.productName === currentFilter.product);
+        return filtered;
+    }
+
+    function computeKPIs(filtered) {
+        let sumOrdersCurr=0, sumOrdersPrev=0, sumSalesCurr=0, sumSalesPrev=0, sumSessionsCurr=0, sumSessionsPrev=0, newSales=0;
+        filtered.forEach(i => {
+            sumOrdersCurr+=i.orders_curr; sumOrdersPrev+=i.orders_prev;
+            sumSalesCurr+=i.sales_curr; sumSalesPrev+=i.sales_prev;
+            sumSessionsCurr+=i.sessions_curr; sumSessionsPrev+=i.sessions_prev;
+            if(i.isNew) newSales+=i.sales_curr;
+        });
+        let convCurr = sumSessionsCurr ? (sumOrdersCurr/sumSessionsCurr*100) : 0;
+        return { orders:sumOrdersCurr, salesUSD:sumSalesCurr, sessions:sumSessionsCurr, conversionRate:convCurr, newSales };
+    }
+
+    function buildSalesDetailTable(filtered) {
+        return filtered.map(item => {
+            let sessionChange = item.sessions_prev===0 ? 0 : ((item.sessions_curr - item.sessions_prev)/item.sessions_prev*100).toFixed(1);
+            let orderChange = item.orders_prev===0 ? 0 : ((item.orders_curr - item.orders_prev)/item.orders_prev*100).toFixed(1);
+            let salesChange = item.sales_prev===0 ? 0 : ((item.sales_curr - item.sales_prev)/item.sales_prev*100).toFixed(1);
+            let convChange = (item.conv_curr - item.conv_prev).toFixed(2);
+            let orderDiff = item.orders_curr - item.orders_prev;
+            let salesDiff = item.sales_curr - item.sales_prev;
+            return {
+                accountSite: item.accountSite, sku: item.sku, productName: item.productName, asin: item.asin,
+                sessions_curr: item.sessions_curr, sessions_prev: item.sessions_prev, sessionChange,
+                conv_curr: item.conv_curr.toFixed(1), conv_prev: item.conv_prev.toFixed(1), convChange,
+                orders_curr: item.orders_curr, orders_prev: item.orders_prev, orderChange, orderDiff,
+                sales_curr: item.sales_curr, sales_prev: item.sales_prev, salesChange, salesDiff
+            };
+        }).sort((a,b)=>a.productName.localeCompare(b.productName));
+    }
+
+    function regionAnalysis(filtered) {
+        let regions = ["US","EU","JP"];
+        return regions.map(reg => {
+            let items = filtered.filter(i=>i.siteRegion===reg);
+            let sessionsCurr=0, sessionsPrev=0, ordersCurr=0, ordersPrev=0, salesCurr=0, salesPrev=0;
+            let newSalesCurr=0, newSalesPrev=0;
+            let convCurrSum=0, convPrevSum=0, count=0;
+            items.forEach(i=>{
+                sessionsCurr+=i.sessions_curr; sessionsPrev+=i.sessions_prev;
+                ordersCurr+=i.orders_curr; ordersPrev+=i.orders_prev;
+                salesCurr+=i.sales_curr; salesPrev+=i.sales_prev;
+                if(i.isNew) { newSalesCurr+=i.sales_curr; newSalesPrev+=i.sales_prev; }
+                convCurrSum+=i.conv_curr; convPrevSum+=i.conv_prev; count++;
+            });
+            let sessionChange = sessionsPrev===0?0:((sessionsCurr-sessionsPrev)/sessionsPrev*100).toFixed(1);
+            let orderChange = ordersPrev===0?0:((ordersCurr-ordersPrev)/ordersPrev*100).toFixed(1);
+            let salesChange = salesPrev===0?0:((salesCurr-salesPrev)/salesPrev*100).toFixed(1);
+            let newSalesChange = newSalesPrev===0?0:((newSalesCurr-newSalesPrev)/newSalesPrev*100).toFixed(1);
+            let avgConvCurr = count? convCurrSum/count : 0;
+            let avgConvPrev = count? convPrevSum/count : 0;
+            let convDiff = (avgConvCurr - avgConvPrev).toFixed(2);
+            let orderDiff = ordersCurr - ordersPrev;
+            let salesDiff = salesCurr - salesPrev;
+            let newSalesDiff = newSalesCurr - newSalesPrev;
+            return { region:reg, sessionsCurr, sessionsPrev, sessionChange, convCurr:avgConvCurr.toFixed(1), convPrev:avgConvPrev.toFixed(1), convDiff, ordersCurr, ordersPrev, orderChange, orderDiff, salesCurr, salesPrev, salesChange, salesDiff, newSalesCurr, newSalesPrev, newSalesChange, newSalesDiff };
+        });
+    }
+
+    function productTypeAnalysis(filtered) {
+        let typeMap = new Map();
+        filtered.forEach(i => {
+            let type = i.productType;
+            if(!typeMap.has(type)) typeMap.set(type, { sessionsCurr:0, sessionsPrev:0, ordersCurr:0, ordersPrev:0, salesCurr:0, salesPrev:0, convCurrSum:0, convPrevSum:0, count:0 });
+            let t = typeMap.get(type);
+            t.sessionsCurr += i.sessions_curr; t.sessionsPrev += i.sessions_prev;
+            t.ordersCurr += i.orders_curr; t.ordersPrev += i.orders_prev;
+            t.salesCurr += i.sales_curr; t.salesPrev += i.sales_prev;
+            t.convCurrSum += i.conv_curr; t.convPrevSum += i.conv_prev; t.count++;
+        });
+        let result = [];
+        for(let [type, val] of typeMap.entries()) {
+            let sessionChange = val.sessionsPrev===0?0:((val.sessionsCurr - val.sessionsPrev)/val.sessionsPrev*100).toFixed(1);
+            let orderChange = val.ordersPrev===0?0:((val.ordersCurr - val.ordersPrev)/val.ordersPrev*100).toFixed(1);
+            let salesChange = val.salesPrev===0?0:((val.salesCurr - val.salesPrev)/val.salesPrev*100).toFixed(1);
+            let avgConvCurr = val.count? val.convCurrSum/val.count : 0;
+            let avgConvPrev = val.count? val.convPrevSum/val.count : 0;
+            let convDiff = (avgConvCurr - avgConvPrev).toFixed(2);
+            let orderDiff = val.ordersCurr - val.ordersPrev;
+            let salesDiff = val.salesCurr - val.salesPrev;
+            result.push({ type, sessionsCurr:val.sessionsCurr, sessionsPrev:val.sessionsPrev, sessionChange, convCurr:avgConvCurr.toFixed(1), convPrev:avgConvPrev.toFixed(1), convDiff, ordersCurr:val.ordersCurr, ordersPrev:val.ordersPrev, orderChange, orderDiff, salesCurr:val.salesCurr, salesPrev:val.salesPrev, salesChange, salesDiff });
+        }
+        return result.sort((a,b)=>a.type.localeCompare(b.type));
+    }
+
+    function getGrowthDeclineTop5(filtered) {
+        let prodMap = new Map();
+        filtered.forEach(i=>{ let name=i.productName; if(!prodMap.has(name)) prodMap.set(name, { salesCurr:0, salesPrev:0 }); let d=prodMap.get(name); d.salesCurr+=i.sales_curr; d.salesPrev+=i.sales_prev; });
+        let list=[]; for(let [name,val] of prodMap.entries()){ list.push({ name, deltaVal: val.salesCurr - val.salesPrev, salesCurr:val.salesCurr, salesPrev:val.salesPrev }); }
+        list.sort((a,b)=>b.deltaVal - a.deltaVal);
+        return { growth: list.slice(0,5), decline: list.slice().sort((a,b)=>a.deltaVal - b.deltaVal).slice(0,5) };
+    }
+
+    function keyConversion(filtered) {
+        let prodMap = new Map();
+        filtered.forEach(i=>{ let name=i.productName; if(!prodMap.has(name)) prodMap.set(name, { salesCurr:0, convCurrSum:0, convCount:0, convPrevSum:0, convPrevCount:0 }); let d=prodMap.get(name); d.salesCurr+=i.sales_curr; d.convCurrSum+=i.conv_curr; d.convCount++; d.convPrevSum+=i.conv_prev; d.convPrevCount++; });
+        let arr=[]; for(let [name,val] of prodMap.entries()){ let avgCurr = val.convCount?val.convCurrSum/val.convCount:0; let avgPrev = val.convPrevCount?val.convPrevSum/val.convPrevCount:0; arr.push({ name, salesCurr:val.salesCurr, avgConvCurr:avgCurr, avgConvPrev:avgPrev, change:avgCurr-avgPrev }); }
+        arr.sort((a,b)=>b.salesCurr - a.salesCurr); return arr.slice(0,6);
+    }
+
+    function getAlerts(filtered) {
+        let alerts=[];
+        filtered.forEach(i=>{
+            let salesChange = i.sales_prev===0?0:((i.sales_curr - i.sales_prev)/i.sales_prev*100);
+            let orderChange = i.orders_prev===0?0:((i.orders_curr - i.orders_prev)/i.orders_prev*100);
+            if(Math.abs(salesChange)>=30) alerts.push({ name:i.productName, metric:"销售额", change:salesChange.toFixed(1), risk:Math.abs(salesChange)>=60?"高":(Math.abs(salesChange)>=45?"中":"低") });
+            if(Math.abs(orderChange)>=30) alerts.push({ name:i.productName, metric:"订单量", change:orderChange.toFixed(1), risk:Math.abs(orderChange)>=60?"高":(Math.abs(orderChange)>=45?"中":"低") });
+        });
+        return alerts.slice(0,10);
+    }
+
+    // ===================== 导出全量 Excel 报告 =====================
+    function exportFullReport() {
+        if (!ratesLoaded) { alert("汇率数据未就绪，请稍后再试"); return; }
+        const filtered = getFilteredData();
+        if (filtered.length === 0) { alert("当前筛选下无数据，无法导出"); return; }
+
+        // 1. KPI 汇总表
+        const kpi = computeKPIs(filtered);
+        const kpiSheetData = [
+            { 指标: "订单总量", 数值: kpi.orders },
+            { 指标: "总销售额(USD)", 数值: kpi.salesUSD.toFixed(2) },
+            { 指标: "总会话次数", 数值: kpi.sessions },
+            { 指标: "整体转化率(%)", 数值: kpi.conversionRate.toFixed(2) },
+            { 指标: "新品销售额(USD)", 数值: kpi.newSales.toFixed(2) }
+        ];
+        // 2. 销售明细表
+        const salesDetail = buildSalesDetailTable(filtered);
+        const salesDetailSheet = salesDetail.map(r => ({
+            "账号/站点": r.accountSite, "SKU": r.sku, "品名": r.productName, "ASIN": r.asin,
+            "会话次数(上月)": r.sessions_curr, "会话次数(上上月)": r.sessions_prev, "会话涨跌%": r.sessionChange,
+            "转化率%(上月)": r.conv_curr, "转化率%(上上月)": r.conv_prev, "转化率差值(p.p)": r.convChange,
+            "订单数(上月)": r.orders_curr, "订单数(上上月)": r.orders_prev, "订单涨跌%": r.orderChange, "订单差值": r.orderDiff,
+            "销售额USD(上月)": r.sales_curr.toFixed(2), "销售额USD(上上月)": r.sales_prev.toFixed(2), "销售额涨跌%": r.salesChange, "销售额差值USD": r.salesDiff.toFixed(2)
+        }));
+        // 3. 区域表现
+        const regionData = regionAnalysis(filtered);
+        const regionSheet = regionData.map(r => ({
+            "区域": r.region,
+            "会话(上月)": r.sessionsCurr, "会话(上上月)": r.sessionsPrev, "会话涨跌%": r.sessionChange,
+            "转化率%(上月)": r.convCurr, "转化率%(上上月)": r.convPrev, "转化率差值(p.p)": r.convDiff,
+            "订单(上月)": r.ordersCurr, "订单(上上月)": r.ordersPrev, "订单涨跌%": r.orderChange, "订单差值": r.orderDiff,
+            "销售额USD(上月)": r.salesCurr.toFixed(2), "销售额USD(上上月)": r.salesPrev.toFixed(2), "销售额涨跌%": r.salesChange, "销售额差值USD": r.salesDiff.toFixed(2),
+            "新品销售额USD(上月)": r.newSalesCurr.toFixed(2), "新品销售额USD(上上月)": r.newSalesPrev.toFixed(2), "新品涨跌%": r.newSalesChange, "新品差值USD": r.newSalesDiff.toFixed(2)
+        }));
+        // 4. 产品类型分析
+        const typeData = productTypeAnalysis(filtered);
+        const typeSheet = typeData.map(t => ({
+            "产品类型": t.type,
+            "会话(上月)": t.sessionsCurr, "会话(上上月)": t.sessionsPrev, "会话涨跌%": t.sessionChange,
+            "转化率%(上月)": t.convCurr, "转化率%(上上月)": t.convPrev, "转化率差值(p.p)": t.convDiff,
+            "订单(上月)": t.ordersCurr, "订单(上上月)": t.ordersPrev, "订单涨跌%": t.orderChange, "订单差值": t.orderDiff,
+            "销售额USD(上月)": t.salesCurr.toFixed(2), "销售额USD(上上月)": t.salesPrev.toFixed(2), "销售额涨跌%": t.salesChange, "销售额差值USD": t.salesDiff.toFixed(2)
+        }));
+        // 5. 增长Top5
+        const { growth, decline } = getGrowthDeclineTop5(filtered);
+        const growthSheet = growth.map(g => ({ "产品名称": g.name, "销售额增量USD": g.deltaVal.toFixed(2), "本月销售额USD": g.salesCurr.toFixed(2), "上月销售额USD": g.salesPrev.toFixed(2) }));
+        const declineSheet = decline.map(d => ({ "产品名称": d.name, "销售额减量USD": d.deltaVal.toFixed(2), "本月销售额USD": d.salesCurr.toFixed(2), "上月销售额USD": d.salesPrev.toFixed(2) }));
+        // 6. 重点产品转化率
+        const keyConv = keyConversion(filtered);
+        const keyConvSheet = keyConv.map(k => ({ "产品": k.name, "本月转化率%": k.avgConvCurr.toFixed(2), "上月转化率%": k.avgConvPrev.toFixed(2), "变化(p.p)": k.change.toFixed(2) }));
+        // 7. 异常预警
+        const alerts = getAlerts(filtered);
+        const alertSheet = alerts.map(a => ({ "产品": a.name, "指标": a.metric, "环比变化%": a.change, "风险等级": a.risk }));
+
+        // 创建工作簿
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(kpiSheetData), "KPI汇总");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(salesDetailSheet), "销售维度明细");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(regionSheet), "区域表现(USD)");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(typeSheet), "产品类型环比");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(growthSheet), "增长Top5");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(declineSheet), "下滑Top5");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(keyConvSheet), "重点产品转化率");
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(alertSheet), "异常波动预警");
+
+        const now = new Date();
+        const fileName = `亚马逊环比分析报告_${now.getFullYear()}${(now.getMonth()+1).toString().padStart(2,'0')}${now.getDate().toString().padStart(2,'0')}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    }
+
+    async function renderDashboard() {
+        if (!ratesLoaded) return;
+        const filtered = getFilteredData();
+        const kpi = computeKPIs(filtered);
+        document.getElementById("kpiContainer").innerHTML = `
+            <div class="kpi-card"><div class="kpi-value">${kpi.orders}</div><div class="kpi-label">订单总量</div></div>
+            <div class="kpi-card"><div class="kpi-value">$${kpi.salesUSD.toFixed(0)}</div><div class="kpi-label">总销售额(USD)</div></div>
+            <div class="kpi-card"><div class="kpi-value">${kpi.sessions}</div><div class="kpi-label">总会话次数</div></div>
+            <div class="kpi-card"><div class="kpi-value">${kpi.conversionRate.toFixed(1)}%</div><div class="kpi-label">整体转化率</div></div>
+            <div class="kpi-card"><div class="kpi-value">$${kpi.newSales.toFixed(0)}</div><div class="kpi-label">新品销售额(USD)</div></div>
+        `;
+        const detailRows = buildSalesDetailTable(filtered);
+        document.getElementById("salesDetailTable").innerHTML = `<table><thead><tr><th>账号/站点</th><th>SKU</th><th>品名</th><th>ASIN</th><th colspan="3">会话次数</th><th colspan="3">转化率%</th><th colspan="4">订单数</th><th colspan="4">销售额(USD)</th></tr><tr><th></th><th></th><th></th><th></th><th>上月</th><th>上上月</th><th>涨跌%</th><th>上月</th><th>上上月</th><th>差值(p.p)</th><th>上月</th><th>上上月</th><th>涨跌%</th><th>差值</th><th>上月</th><th>上上月</th><th>涨跌%</th><th>差值</th></tr></thead><tbody>${detailRows.map(r => `<tr>
+                <td>${r.accountSite}</td><td>${r.sku}</td><td>${r.productName}</td><td>${r.asin}</td>
+                <td>${r.sessions_curr}</td><td>${r.sessions_prev}</td><td class="${r.sessionChange>=0?'trend-up':'trend-down'}">${r.sessionChange}%</td>
+                <td>${r.conv_curr}%</td><td>${r.conv_prev}%</td><td class="${r.convChange>=0?'trend-up':'trend-down'}">${r.convChange}</td>
+                <td>${r.orders_curr}</td><td>${r.orders_prev}</td><td class="${r.orderChange>=0?'trend-up':'trend-down'}">${r.orderChange}%</td><td class="${r.orderDiff>=0?'trend-up':'trend-down'}">${r.orderDiff}</td>
+                <td>$${r.sales_curr.toFixed(0)}</td><td>$${r.sales_prev.toFixed(0)}</td><td class="${r.salesChange>=0?'trend-up':'trend-down'}">${r.salesChange}%</td><td class="${r.salesDiff>=0?'trend-up':'trend-down'}">$${r.salesDiff.toFixed(0)}</td>
+            `).join('')}</tbody></table>`;
+        
+        const regionStats = regionAnalysis(filtered);
+        document.getElementById("regionAnalysis").innerHTML = `<table><thead><tr><th>区域</th><th colspan="3">会话次数</th><th colspan="3">转化率%</th><th colspan="4">订单数</th><th colspan="4">销售额(USD)</th><th colspan="4">新品销售额(USD)</th></tr><tr><th></th><th>上月</th><th>上上月</th><th>涨跌%</th><th>上月</th><th>上上月</th><th>差值(p.p)</th><th>上月</th><th>上上月</th><th>涨跌%</th><th>差值</th><th>上月</th><th>上上月</th><th>涨跌%</th><th>差值</th><th>上月</th><th>上上月</th><th>涨跌%</th><th>差值</th></tr></thead><tbody>${regionStats.map(r => `<tr>
+                <td><strong>${r.region}</strong></td>
+                <td>${r.sessionsCurr}</td><td>${r.sessionsPrev}</td><td class="${r.sessionChange>=0?'trend-up':'trend-down'}">${r.sessionChange}%</td>
+                <td>${r.convCurr}%</td><td>${r.convPrev}%</td><td class="${r.convDiff>=0?'trend-up':'trend-down'}">${r.convDiff}</td>
+                <td>${r.ordersCurr}</td><td>${r.ordersPrev}</td><td class="${r.orderChange>=0?'trend-up':'trend-down'}">${r.orderChange}%</td><td class="${r.orderDiff>=0?'trend-up':'trend-down'}">${r.orderDiff}</td>
+                <td>$${r.salesCurr.toFixed(0)}</td><td>$${r.salesPrev.toFixed(0)}</td><td class="${r.salesChange>=0?'trend-up':'trend-down'}">${r.salesChange}%</td><td class="${r.salesDiff>=0?'trend-up':'trend-down'}">$${r.salesDiff.toFixed(0)}</td>
+                <td>$${r.newSalesCurr.toFixed(0)}</td><td>$${r.newSalesPrev.toFixed(0)}</td><td class="${r.newSalesChange>=0?'trend-up':'trend-down'}">${r.newSalesChange}%</td><td class="${r.newSalesDiff>=0?'trend-up':'trend-down'}">$${r.newSalesDiff.toFixed(0)}</td>
+            `).join('')}</tbody></table>`;
+        
+        const typeStats = productTypeAnalysis(filtered);
+        document.getElementById("productTypeAnalysis").innerHTML = `<table><thead><tr><th>产品类型</th><th colspan="3">会话次数</th><th colspan="3">转化率%</th><th colspan="4">订单数</th><th colspan="4">销售额(USD)</th></tr><tr><th></th><th>上月</th><th>上上月</th><th>涨跌%</th><th>上月</th><th>上上月</th><th>差值(p.p)</th><th>上月</th><th>上上月</th><th>涨跌%</th><th>差值</th><th>上月</th><th>上上月</th><th>涨跌%</th><th>差值</th></tr></thead><tbody>${typeStats.map(t => `<tr>
+                <td><strong>${t.type}</strong></td>
+                <td>${t.sessionsCurr}</td><td>${t.sessionsPrev}</td><td class="${t.sessionChange>=0?'trend-up':'trend-down'}">${t.sessionChange}%</td>
+                <td>${t.convCurr}%</td><td>${t.convPrev}%</td><td class="${t.convDiff>=0?'trend-up':'trend-down'}">${t.convDiff}</td>
+                <td>${t.ordersCurr}</td><td>${t.ordersPrev}</td><td class="${t.orderChange>=0?'trend-up':'trend-down'}">${t.orderChange}%</td><td class="${t.orderDiff>=0?'trend-up':'trend-down'}">${t.orderDiff}</td>
+                <td>$${t.salesCurr.toFixed(0)}</td><td>$${t.salesPrev.toFixed(0)}</td><td class="${t.salesChange>=0?'trend-up':'trend-down'}">${t.salesChange}%</td><td class="${t.salesDiff>=0?'trend-up':'trend-down'}">$${t.salesDiff.toFixed(0)}</td>
+            `).join('')}</tbody></table>`;
+        
+        const { growth, decline } = getGrowthDeclineTop5(filtered);
+        document.getElementById("growthTop5").innerHTML = growth.map(g => `<div class="list-item"><div class="list-name">${g.name}</div><div class="list-values"><span>+$${g.deltaVal.toFixed(0)}</span><span>$${g.salesCurr.toFixed(0)} → $${g.salesPrev.toFixed(0)}</span></div></div>`).join('');
+        document.getElementById("declineTop5").innerHTML = decline.map(d => `<div class="list-item"><div class="list-name">${d.name}</div><div class="list-values"><span>${d.deltaVal.toFixed(0)}</span><span>$${d.salesCurr.toFixed(0)} → $${d.salesPrev.toFixed(0)}</span></div></div>`).join('');
+        const keyConv = keyConversion(filtered);
+        document.getElementById("keyConversionTable").innerHTML = `<table><tr><th>产品</th><th>本月转化率%</th><th>上月转化率%</th><th>变化(p.p)</th></tr>${keyConv.map(k=>`<tr><td>${k.name}</td><td>${k.avgConvCurr.toFixed(1)}%</td><td>${k.avgConvPrev.toFixed(1)}%</td><td class="${k.change>=0?'trend-up':'trend-down'}">${k.change.toFixed(2)}</td></tr>`).join('')}</table>`;
+        
+        const alerts = getAlerts(filtered);
+        document.getElementById("alertTable").innerHTML = alerts.length ? 
+            `<table><thead><tr><th>产品</th><th>指标</th><th>环比变化%</th><th>风险等级</th></tr></thead><tbody>${alerts.map(a=>`<tr><td>${a.name}</td><td>${a.metric}</td><td>${a.change}%</td><td><span class="badge badge-${a.risk==='高'?'high':(a.risk==='中'?'mid':'low')}">${a.risk}</span></td></tr>`).join('')}</tbody></table>` : 
+            "<div>✅ 无超过±30%剧烈波动</div>";
+    }
+
+    function applyFilter() {
+        currentFilter.site = document.getElementById("siteFilter").value;
+        currentFilter.type = document.getElementById("typeFilter").value;
+        currentFilter.product = document.getElementById("productFilter").value;
+        updateFilterOptions();
+        renderDashboard();
+    }
+
+    async function init() {
+        await fetchExchangeRates();
+        loadBuiltinDemo();
+        document.getElementById("applyFilterBtn").onclick = applyFilter;
+        document.getElementById("exportReportBtn").onclick = exportFullReport;
+        document.getElementById("uploadTrigger").onclick = () => document.getElementById("excelUpload").click();
+        document.getElementById("excelUpload").onchange = (e) => { if(e.target.files[0]) loadExcelData(e.target.files[0]); };
+        document.getElementById("siteFilter").addEventListener("change", function() { currentFilter.site = this.value; currentFilter.type = "all"; currentFilter.product = "all"; updateFilterOptions(); renderDashboard(); });
+        document.getElementById("typeFilter").addEventListener("change", function() { currentFilter.type = this.value; currentFilter.product = "all"; updateFilterOptions(); renderDashboard(); });
+        document.getElementById("productFilter").addEventListener("change", function() { currentFilter.product = this.value; renderDashboard(); });
+    }
+    init();
+</script>
+</body>
+</html>
